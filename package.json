@@ -2,6 +2,7 @@
   "name": "lattice",
   "description": "Centralized AI infrastructure for connecting applications to cloud and self-hosted models",
   "type": "module",
+  "license": "MIT",
   "scripts": {
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
