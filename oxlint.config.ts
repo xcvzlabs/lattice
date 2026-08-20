@@ -1,7 +1,7 @@
 import { defineConfig } from 'oxlint';
 
 export default defineConfig({
-  jsPlugins: [],
+  jsPlugins: [{ name: 'anti-slop', specifier: './tools/oxlint/anti-slop/index.ts' }],
   plugins: ['typescript', 'unicorn', 'import', 'vue', 'oxc'],
   categories: {
     correctness: 'error',
@@ -105,10 +105,41 @@ export default defineConfig({
     'import/no-self-import': 'error',
     'import/no-mutable-exports': 'warn',
     'import/newline-after-import': 'warn',
+
+    'anti-slop/no-chained-type-assertions': 'error',
+    'anti-slop/no-conditional-empty-object-spread': 'error',
+    'anti-slop/no-known-value-widening': 'error',
+    'anti-slop/no-module-mocking': 'error',
+    'anti-slop/no-object-parameters': 'error',
+    'anti-slop/no-reflect-apply': 'error',
+    'anti-slop/no-reflect-get': 'error',
+    'anti-slop/no-runtime-typeof': 'error',
+    'anti-slop/no-shape-in-symbol-names': 'error',
+    'anti-slop/no-unknown-parameters': 'error',
+    'anti-slop/no-unknown-returns': 'error',
+    'anti-slop/no-unknown-type-aliases': 'error',
+    'anti-slop/no-unsafe-dictionary-type': 'error',
+    'anti-slop/no-widen-then-assert': 'error',
+    'anti-slop/require-safety-comment-for-type-assertion': 'error',
   },
   options: {
     typeAware: true,
     typeCheck: true,
   },
-  ignorePatterns: ['**/.*/**', '*.d.ts'],
+  ignorePatterns: [
+    '**/.*/**',
+    '*.d.ts',
+    '.agent/**',
+    '.agents/**',
+    '.claude/**',
+    '.codex/**',
+    '.continue/**',
+    '.cursor/**',
+    '.gemini/**',
+    '.opencode/**',
+    '.pi/**',
+    '.roo/**',
+    '.windsurf/**',
+    'tools/oxlint/anti-slop/**',
+  ],
 });

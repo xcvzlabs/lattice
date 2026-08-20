@@ -22,6 +22,7 @@
     }
   },
   "devDependencies": {
+    "@oxlint/plugins": "1.79.0",
     "@types/bun": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
