@@ -1,9 +1,16 @@
 name: Setup project
-description: Set up Bun (cached) and install dependencies. Assumes the repo has already been checked out.
+description: Set up Node and Bun (cached) and install dependencies. Assumes the repo has already been checked out.
 
 runs:
   using: composite
   steps:
+    # oxlint and oxfmt load their TypeScript config files through Node, which
+    # requires a runtime with type stripping. The runner image ships Node 20.
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: '26'
+
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
       with:
