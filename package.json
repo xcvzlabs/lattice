@@ -8,7 +8,10 @@
     "lint": "oxlint",
     "check": "bun run fmt && bun run fmt:check && bun run lint",
     "prepare": "husky",
-    "stage": "lint-staged"
+    "stage": "lint-staged",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:verbose": "vitest run --reporter=verbose"
   },
   "workspaces": {
     "packages": [],
@@ -23,7 +26,8 @@
     "lint-staged": "^17.3.0",
     "oxfmt": "^0.64.0",
     "oxlint": "^1.79.0",
-    "oxlint-tsgolint": "^7.0.2001"
+    "oxlint-tsgolint": "^7.0.2001",
+    "vitest": "^4.1.11"
   },
   "devEngines": {
     "packageManager": {
@@ -31,5 +35,8 @@
       "version": "1.4.0",
       "onFail": "download"
     }
+  },
+  "engines": {
+    "node": "^26.0.0"
   }
 }
