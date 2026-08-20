@@ -6,7 +6,9 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
-    "check": "bun run fmt && bun run fmt:check && bun run lint"
+    "check": "bun run fmt && bun run fmt:check && bun run lint",
+    "prepare": "husky",
+    "stage": "lint-staged"
   },
   "workspaces": {
     "packages": [],
@@ -16,6 +18,9 @@
     }
   },
   "devDependencies": {
+    "@types/bun": "catalog:",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
     "oxfmt": "^0.64.0",
     "oxlint": "^1.79.0",
     "oxlint-tsgolint": "^7.0.2001"
