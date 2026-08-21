@@ -10,17 +10,22 @@
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "seed": "bun run scripts/seed-application.ts",
+    "generate-pepper": "bun run scripts/generate-pepper.ts"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
+    "consola": "catalog:",
     "drizzle-kit": "catalog:server",
     "nitro": "catalog:server",
     "typescript": "catalog:"
   },
   "dependencies": {
+    "@lattice/api-contract": "workspace:*",
     "@lattice/env": "workspace:*",
     "drizzle-orm": "catalog:server",
+    "evlog": "^2.26.0",
     "valibot": "catalog:"
   }
 }
