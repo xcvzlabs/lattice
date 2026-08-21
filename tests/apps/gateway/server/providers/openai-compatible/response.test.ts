@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fromOpenAiResponse } from '~/apps/gateway/server/providers/openai/response.ts';
+import { fromOpenAiResponse } from '~/apps/gateway/server/providers/openai-compatible/response.ts';
 
 describe('fromOpenAiResponse', () => {
   it('maps a well-formed OpenAI response into the canonical shape', () => {
