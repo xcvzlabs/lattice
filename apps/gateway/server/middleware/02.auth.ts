@@ -5,10 +5,9 @@ import { setApplication } from '../utils/request-context.ts';
 
 const BEARER_PREFIX = 'Bearer ';
 
-// Registered scoped to /v1/** via nitro.config.ts's `handlers` config, deliberately NOT placed
-// under server/middleware/. Files there are auto-registered globally (matching /**) by
-// filesystem convention, which would also apply this to unauthenticated routes like /health.
 export default defineMiddleware(async (event) => {
+  if (!event.url.pathname.startsWith('/v1/')) return;
+
   const header = event.req.headers.get('authorization');
 
   if (header === null || !header.startsWith(BEARER_PREFIX)) {

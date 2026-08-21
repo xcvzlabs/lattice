@@ -9,11 +9,9 @@ function currentWindowStart(): Date {
   return new Date(Math.floor(Date.now() / WINDOW_MS) * WINDOW_MS);
 }
 
-// Registered scoped to /v1/** via nitro.config.ts's `handlers` config, after auth-middleware
-// so `getApplication` is already populated. Every request counts toward the limit, including
-// ones that will later fail at the provider, since rate limiting protects against request
-// volume, not just successful ones.
 export default defineMiddleware(async (event) => {
+  if (!event.url.pathname.startsWith('/v1/')) return;
+
   const application = getApplication(event.req);
 
   if (application === undefined) return;
