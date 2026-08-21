@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
     "seed": "bun run scripts/seed-application.ts",
+    "seed-management-key": "bun run scripts/seed-management-key.ts",
     "generate-pepper": "bun run scripts/generate-pepper.ts"
   },
   "devDependencies": {

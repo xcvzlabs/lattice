@@ -1,5 +1,5 @@
 import type { Application } from './applications.ts';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '../client.ts';
 import { apiKeys, applications } from '../schema.ts';
 
@@ -38,4 +38,24 @@ export async function findActiveApiKeyByHash(
 
 export async function touchLastUsedAt(id: string): Promise<void> {
   await db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, id));
+}
+
+export async function listApiKeysForApplication(applicationId: string): Promise<ApiKey[]> {
+  return db
+    .select()
+    .from(apiKeys)
+    .where(eq(apiKeys.applicationId, applicationId))
+    .orderBy(desc(apiKeys.createdAt));
+}
+
+/** Idempotent: revoking an already-revoked key leaves its original `revokedAt` untouched. */
+export async function revokeApiKey(id: string, applicationId: string): Promise<ApiKey | undefined> {
+  const [apiKey] = await db
+    .update(apiKeys)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(eq(apiKeys.id, id), eq(apiKeys.applicationId, applicationId), isNull(apiKeys.revokedAt)),
+    )
+    .returning();
+  return apiKey;
 }
