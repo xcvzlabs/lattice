@@ -226,6 +226,33 @@ describe('createChatCompletion', () => {
     });
   });
 
+  it('aborts the provider request when the caller-supplied clientSignal fires', async () => {
+    const clientController = new AbortController();
+    let capturedSignal: AbortSignal | undefined;
+
+    const deps: DispatchDeps = {
+      registry: registryWithoutFallback,
+      adapters: {
+        openai: {
+          id: 'openai',
+          createChatCompletion: (_request, context) => {
+            capturedSignal = context.signal;
+            return Promise.resolve(stubResponse('a'));
+          },
+          streamChatCompletion: emptyStream,
+        },
+        anthropic: succeedingAdapter('anthropic', stubResponse('b')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerCredentials,
+    };
+
+    clientController.abort();
+    await createChatCompletion(baseRequest, deps, { clientSignal: clientController.signal });
+
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
   it('maps a single retryable failure with no fallback to provider_error', async () => {
     const deps: DispatchDeps = {
       registry: registryWithoutFallback,
@@ -296,6 +323,56 @@ describe('beginChatCompletionStream', () => {
 
     const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps);
     expect(result.firstChunk.choices[0]?.delta.content).toBe('fallback');
+  });
+
+  it('aborts the upstream provider stream as soon as the client disconnects mid-stream', async () => {
+    const clientController = new AbortController();
+    let capturedSignal: AbortSignal | undefined;
+
+    const deps: DispatchDeps = {
+      registry: registryWithoutFallback,
+      adapters: {
+        openai: {
+          id: 'openai',
+          createChatCompletion: () => Promise.resolve(stubResponse('a')),
+          // oxlint-disable-next-line require-await
+          async *streamChatCompletion(_request, context) {
+            capturedSignal = context.signal;
+            yield {
+              id: 'chunk-1',
+              object: 'chat.completion.chunk',
+              created: 1,
+              model: 'primary-model',
+              choices: [{ index: 0, delta: { content: 'first' }, finish_reason: null }],
+            };
+            // Simulates the client hanging up between two chunks, once streaming is underway.
+            clientController.abort();
+            yield {
+              id: 'chunk-2',
+              object: 'chat.completion.chunk',
+              created: 1,
+              model: 'primary-model',
+              choices: [{ index: 0, delta: { content: 'second' }, finish_reason: 'stop' }],
+            };
+          },
+        },
+        anthropic: succeedingAdapter('anthropic', stubResponse('b')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerCredentials,
+    };
+
+    const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps, {
+      clientSignal: clientController.signal,
+    });
+
+    expect(capturedSignal?.aborted).toBe(false);
+
+    const rest: ChatCompletionChunk[] = [];
+    for await (const chunk of result.remaining) rest.push(chunk);
+
+    expect(rest).toHaveLength(1);
+    expect(capturedSignal?.aborted).toBe(true);
   });
 });
 

@@ -41,7 +41,7 @@ import {
   requestLogs,
   usageRecords,
 } from '~/apps/gateway/server/database/schema.ts';
-import { assertWithinQuota } from '~/apps/gateway/server/utils/quota.ts';
+import { releaseQuotaReservation, reserveQuota } from '~/apps/gateway/server/utils/quota.ts';
 
 async function isDatabaseReachable(): Promise<boolean> {
   try {
@@ -201,7 +201,7 @@ describe.skipIf(!reachable)('usage repository (integration)', () => {
   });
 });
 
-describe.skipIf(!reachable)('assertWithinQuota (integration)', () => {
+describe.skipIf(!reachable)('reserveQuota (integration)', () => {
   const createdApplicationIds: string[] = [];
 
   afterEach(async () => {
@@ -214,62 +214,115 @@ describe.skipIf(!reachable)('assertWithinQuota (integration)', () => {
     createdApplicationIds.length = 0;
   });
 
-  it('allows a request when no quota is configured', async () => {
+  async function withQuota(name: string, monthlyTokenQuota: number) {
+    const application = await createApplication(name);
+    createdApplicationIds.push(application.id);
+    await db
+      .update(applications)
+      .set({ monthlyTokenQuota })
+      .where(eq(applications.id, application.id));
+
+    const [updated] = await db
+      .select()
+      .from(applications)
+      .where(eq(applications.id, application.id));
+    if (updated === undefined) throw new Error('expected the application to still exist');
+
+    return updated;
+  }
+
+  it('reserves nothing when no quota is configured', async () => {
     const application = await createApplication('integration-test-quota-none');
     createdApplicationIds.push(application.id);
 
-    await expect(assertWithinQuota(application)).resolves.toBeUndefined();
+    await expect(reserveQuota(application, {})).resolves.toBeUndefined();
   });
 
-  it('allows a request when usage is below the quota', async () => {
-    const application = await createApplication('integration-test-quota-under');
-    createdApplicationIds.push(application.id);
-    await db
-      .update(applications)
-      .set({ monthlyTokenQuota: 100 })
-      .where(eq(applications.id, application.id));
+  it('reserves the requested max_tokens against the counter up front', async () => {
+    const application = await withQuota('integration-test-quota-reserve', 1000);
 
-    await recordUsage({
+    const reservation = await reserveQuota(application, { max_tokens: 200 });
+
+    expect(reservation).toEqual({
       applicationId: application.id,
-      model: 'gpt-4o',
-      provider: 'openai',
-      totalTokens: 50,
+      periodStart: currentMonthPeriodStart(),
+      reservedTokens: 200,
     });
 
-    const [updated] = await db
-      .select()
-      .from(applications)
-      .where(eq(applications.id, application.id));
-    if (updated === undefined) throw new Error('expected the application to still exist');
-
-    await expect(assertWithinQuota(updated)).resolves.toBeUndefined();
+    const counter = await getUsageCounter(application.id, currentMonthPeriodStart());
+    expect(counter?.tokensUsed).toBe(200);
   });
 
-  it('rejects a request once usage reaches the quota', async () => {
-    const application = await createApplication('integration-test-quota-exceeded');
-    createdApplicationIds.push(application.id);
-    await db
-      .update(applications)
-      .set({ monthlyTokenQuota: 100 })
-      .where(eq(applications.id, application.id));
+  it('rejects a reservation that would push usage over the quota, writing nothing', async () => {
+    const application = await withQuota('integration-test-quota-reject', 100);
 
-    await recordUsage({
-      applicationId: application.id,
-      model: 'gpt-4o',
-      provider: 'openai',
-      totalTokens: 100,
-    });
-
-    const [updated] = await db
-      .select()
-      .from(applications)
-      .where(eq(applications.id, application.id));
-    if (updated === undefined) throw new Error('expected the application to still exist');
-
-    await expect(assertWithinQuota(updated)).rejects.toMatchObject({
+    await expect(reserveQuota(application, { max_tokens: 150 })).rejects.toMatchObject({
       status: 429,
       data: { code: 'quota_exceeded' },
     });
+
+    const counter = await getUsageCounter(application.id, currentMonthPeriodStart());
+    expect(counter?.tokensUsed ?? 0).toBe(0);
+  });
+
+  it('still rejects once prior usage plus the reservation would exceed the quota', async () => {
+    const application = await withQuota('integration-test-quota-reject-prior-usage', 100);
+
+    await recordUsage({
+      applicationId: application.id,
+      model: 'gpt-4o',
+      provider: 'openai',
+      totalTokens: 80,
+    });
+
+    await expect(reserveQuota(application, { max_tokens: 50 })).rejects.toMatchObject({
+      status: 429,
+      data: { code: 'quota_exceeded' },
+    });
+  });
+
+  it('only lets as many concurrent reservations through as the quota allows', async () => {
+    const application = await withQuota('integration-test-quota-concurrency', 500);
+
+    const attempts = Array.from({ length: 10 }, () =>
+      reserveQuota(application, { max_tokens: 100 }),
+    );
+    const results = await Promise.allSettled(attempts);
+    const succeeded = results.filter((result) => result.status === 'fulfilled');
+
+    // 500 / 100 = 5 reservations fit; a stale-read race would let more than 5 through.
+    expect(succeeded).toHaveLength(5);
+
+    const counter = await getUsageCounter(application.id, currentMonthPeriodStart());
+    expect(counter?.tokensUsed).toBe(500);
+  });
+
+  it('reconciles a reservation down to actual usage via recordUsage', async () => {
+    const application = await withQuota('integration-test-quota-reconcile', 1000);
+    const reservation = await reserveQuota(application, { max_tokens: 400 });
+    if (reservation === undefined) throw new Error('expected a reservation');
+
+    await recordUsage({
+      applicationId: application.id,
+      model: 'gpt-4o',
+      provider: 'openai',
+      totalTokens: 120,
+      reservedTokens: reservation.reservedTokens,
+    });
+
+    const counter = await getUsageCounter(application.id, currentMonthPeriodStart());
+    expect(counter?.tokensUsed).toBe(120);
+  });
+
+  it('releaseQuotaReservation refunds a reservation that never completed', async () => {
+    const application = await withQuota('integration-test-quota-release', 1000);
+    const reservation = await reserveQuota(application, { max_tokens: 300 });
+    if (reservation === undefined) throw new Error('expected a reservation');
+
+    await releaseQuotaReservation(reservation);
+
+    const counter = await getUsageCounter(application.id, currentMonthPeriodStart());
+    expect(counter?.tokensUsed).toBe(0);
   });
 });
 
