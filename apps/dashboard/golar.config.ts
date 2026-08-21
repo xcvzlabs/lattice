@@ -1,4 +1,6 @@
+import { configure } from '@golar/vue';
 import { defineConfig } from 'golar/unstable';
-import '@golar/vue';
+
+configure({});
 
 export default defineConfig({});
