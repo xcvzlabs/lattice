@@ -4,19 +4,20 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "dev": "",
+    "build": "",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
+    "typecheck": "tsc --noEmit -p packages/env/tsconfig.json && tsc --noEmit -p packages/api-contract/tsconfig.json && tsc --noEmit -p apps/gateway/tsconfig.json",
     "check": "bun run fmt && bun run fmt:check && bun run lint",
     "prepare": "husky",
     "stage": "lint-staged",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:verbose": "vitest run --reporter=verbose",
+    "test": "bunx --bun vitest run",
+    "test:watch": "bunx --bun vitest",
+    "test:verbose": "bunx --bun vitest run --reporter=verbose",
     "gateway": "bun --filter gateway",
-    "dev": "bun run gateway dev",
-    "build": "bun run gateway build",
-    "typecheck": "tsc --noEmit -p packages/env/tsconfig.json && tsc --noEmit -p packages/api-contract/tsconfig.json && tsc --noEmit -p apps/gateway/tsconfig.json"
+    "dashboard": "bun --filter dashboard"
   },
   "workspaces": {
     "packages": [
@@ -30,6 +31,21 @@
       "valibot": "^1.4.2"
     },
     "catalogs": {
+      "client": {
+        "@golar/vue": "^0.1.10",
+        "@nuxt/ui": "^4.10.0",
+        "@pinia/colada": "^1.4.2",
+        "@pinia/colada-nuxt": "1.0.2",
+        "@pinia/nuxt": "1.0.2",
+        "@vueuse/nuxt": "14.4.0",
+        "golar": "^0.1.10",
+        "nuxt": "^4.5.2",
+        "pinia": "^4.0.3",
+        "pinia-plugin-persistedstate": "^4.7.1",
+        "tailwindcss": "^4.3.3",
+        "vue": "^3.5.41",
+        "vue-router": "^5.2.0"
+      },
       "server": {
         "drizzle-kit": "^1.0.0-rc.4",
         "drizzle-orm": "^1.0.0-rc.4",
