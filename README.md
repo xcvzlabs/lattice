@@ -306,3 +306,9 @@ Lattice has shipped through its planned phases: an OpenAI-compatible API with st
 **Phase 3**: Cost- and latency-aware routing, advanced provider fallback, management API, dashboard, API key management, advanced observability, policy management.
 
 </details>
+
+## Contributing
+
+Contributions are welcome. Read [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) for the development workflow, coding standards, and pull request process, and [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md) for how we expect people to treat each other while doing it. Found a security issue? See [`SECURITY.md`](.github/SECURITY.md) rather than opening a public issue.
+
+Lattice is licensed under the [MIT License](LICENSE).
