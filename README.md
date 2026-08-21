@@ -402,15 +402,15 @@ The initial focus is a reliable internal AI gateway.
 
 ### Phase 1
 
-- [ ] OpenAI-compatible API
-- [ ] Application authentication
-- [ ] Model registry
-- [ ] OpenAI provider
-- [ ] Anthropic provider
-- [ ] Google provider
-- [ ] Streaming
-- [ ] Basic routing
-- [ ] Basic failover
+- [x] OpenAI-compatible API
+- [x] Application authentication
+- [x] Model registry
+- [x] OpenAI provider
+- [x] Anthropic provider
+- [x] Google provider
+- [x] Streaming
+- [x] Basic routing
+- [x] Basic failover
 
 ### Phase 2
 
