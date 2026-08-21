@@ -12,11 +12,13 @@
     "stage": "lint-staged",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:verbose": "vitest run --reporter=verbose"
+    "test:verbose": "vitest run --reporter=verbose",
+    "gateway": "bun --filter gateway"
   },
   "workspaces": {
     "packages": [
-      "apps/*"
+      "apps/*",
+      "packages/*"
     ],
     "catalog": {
       "@types/bun": "1.4.0",
@@ -25,6 +27,8 @@
     },
     "catalogs": {
       "server": {
+        "drizzle-kit": "^1.0.0-rc.4",
+        "drizzle-orm": "^1.0.0-rc.4",
         "nitro": "^3.0.260610-beta"
       }
     }
@@ -37,6 +41,7 @@
     "oxfmt": "^0.64.0",
     "oxlint": "^1.79.0",
     "oxlint-tsgolint": "^7.0.2001",
+    "valibot": "catalog:",
     "vitest": "^4.1.11"
   },
   "devEngines": {
@@ -48,9 +53,5 @@
   },
   "engines": {
     "node": "^26.0.0"
-  },
-  "dependencies": {
-    "nitro": "catalog:server",
-    "valibot": "catalog:"
   }
 }
