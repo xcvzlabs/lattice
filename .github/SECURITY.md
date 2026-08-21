@@ -26,6 +26,12 @@ A useful report includes:
 
 We ask that you give us a reasonable window to investigate and patch an issue before any public disclosure, and that you avoid accessing, modifying, or exfiltrating data beyond what's necessary to demonstrate the vulnerability.
 
+## Trust Model
+
+The dashboard is a flat, single-tenant admin panel, not a multi-tenant SaaS. Every dashboard account is a full administrator over every application, API key, and usage record the gateway manages — there is no per-application ownership or scoping, and the dashboard authenticates to the gateway's management API with one shared service credential rather than one scoped to the signed-in user. This is intentional for the current single-organization deployment model: account creation has no self-service sign-up route, so every account is presumed trusted by whoever provisions it.
+
+**Before adding self-service account creation or multi-tenant scoping, add per-application authorization first** — ownership on the `applications` table, and a management credential scoped to it. Without that, any new account gets full admin over every application on day one.
+
 ## Scope
 
 In scope:
