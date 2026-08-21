@@ -1,9 +1,7 @@
 import type { ErrorEnvelope } from '@lattice/api-contract';
 import { defineErrorHandler } from 'nitro';
 import * as v from 'valibot';
-import { errorType } from './errors.ts';
-
-const latticeErrorDataSchema = v.object({ code: v.string() });
+import { errorType, latticeErrorDataSchema } from './errors.ts';
 
 // `event` here is typed as the narrower HTTPEvent (no `.context`), unlike regular handlers or
 // middleware. Request-id correlation for error responses happens via structured logs at the

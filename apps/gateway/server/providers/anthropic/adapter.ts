@@ -6,7 +6,7 @@ import type {
 import type { ProviderAdapter, ProviderAdapterDeps, ProviderRequestContext } from '../types.ts';
 import * as v from 'valibot';
 import { parseNamedEventSseStream } from '../sse.ts';
-import { ProviderRequestError, requireApiKey } from '../types.ts';
+import { assertProviderOk, requireApiKey } from '../types.ts';
 import { toAnthropicRequest } from './request.ts';
 import { anthropicResponseSchema, fromAnthropicResponse } from './response.ts';
 import {
@@ -40,13 +40,7 @@ export function createAnthropicAdapter(deps: ProviderAdapterDeps = {}): Provider
       signal: context.signal,
     });
 
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        'anthropic',
-        response.status,
-        `Anthropic request failed (${response.status})`,
-      );
-    }
+    assertProviderOk(response, 'anthropic', 'Anthropic');
 
     const body: unknown = await response.json();
     return fromAnthropicResponse(v.parse(anthropicResponseSchema, body), request.model);
@@ -63,13 +57,7 @@ export function createAnthropicAdapter(deps: ProviderAdapterDeps = {}): Provider
       signal: context.signal,
     });
 
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        'anthropic',
-        response.status,
-        `Anthropic request failed (${response.status})`,
-      );
-    }
+    assertProviderOk(response, 'anthropic', 'Anthropic');
 
     let state: AnthropicStreamState = {
       id: '',

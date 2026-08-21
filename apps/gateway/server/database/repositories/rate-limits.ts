@@ -1,4 +1,5 @@
 import { and, eq, lt, sql } from 'drizzle-orm';
+import { createLatticeError } from '../../utils/errors.ts';
 import { db } from '../client.ts';
 import { rateLimitCounters } from '../schema.ts';
 
@@ -23,7 +24,11 @@ export async function incrementAndCheckRateLimit(
     .returning();
 
   if (counter === undefined) {
-    throw new Error('Upsert into rate_limit_counters returned no row');
+    throw createLatticeError(
+      500,
+      'internal_error',
+      'Upsert into rate_limit_counters returned no row',
+    );
   }
 
   await db

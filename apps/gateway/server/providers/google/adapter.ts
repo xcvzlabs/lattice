@@ -6,7 +6,7 @@ import type {
 import type { ProviderAdapter, ProviderAdapterDeps, ProviderRequestContext } from '../types.ts';
 import * as v from 'valibot';
 import { parseDataOnlySseStream } from '../sse.ts';
-import { ProviderRequestError, requireApiKey } from '../types.ts';
+import { assertProviderOk, requireApiKey } from '../types.ts';
 import { toGeminiRequest } from './request.ts';
 import { fromGeminiResponse, geminiResponseSchema } from './response.ts';
 import { geminiChunkSchema, parseGeminiChunk } from './stream.ts';
@@ -48,13 +48,7 @@ export function createGoogleAdapter(deps: ProviderAdapterDeps = {}): ProviderAda
       },
     );
 
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        'google',
-        response.status,
-        `Google request failed (${response.status})`,
-      );
-    }
+    assertProviderOk(response, 'google', 'Google');
 
     const body: unknown = await response.json();
     return fromGeminiResponse(v.parse(geminiResponseSchema, body), request.model);
@@ -79,13 +73,7 @@ export function createGoogleAdapter(deps: ProviderAdapterDeps = {}): ProviderAda
       },
     );
 
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        'google',
-        response.status,
-        `Google request failed (${response.status})`,
-      );
-    }
+    assertProviderOk(response, 'google', 'Google');
 
     for await (const event of parseDataOnlySseStream(response)) {
       yield parseGeminiChunk(v.parse(geminiChunkSchema, event), request.model);

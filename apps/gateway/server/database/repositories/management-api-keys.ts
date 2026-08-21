@@ -1,4 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm';
+import { createLatticeError } from '../../utils/errors.ts';
 import { db } from '../client.ts';
 import { managementApiKeys } from '../schema.ts';
 
@@ -15,7 +16,11 @@ export async function createManagementApiKey(
 ): Promise<ManagementApiKey> {
   const [key] = await db.insert(managementApiKeys).values(input).returning();
   if (key === undefined) {
-    throw new Error('Insert into management_api_keys returned no row');
+    throw createLatticeError(
+      500,
+      'internal_error',
+      'Insert into management_api_keys returned no row',
+    );
   }
   return key;
 }

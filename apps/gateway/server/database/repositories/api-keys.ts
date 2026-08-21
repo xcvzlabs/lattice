@@ -1,5 +1,6 @@
 import type { Application } from './applications.ts';
 import { and, desc, eq, isNull } from 'drizzle-orm';
+import { createLatticeError } from '../../utils/errors.ts';
 import { db } from '../client.ts';
 import { apiKeys, applications } from '../schema.ts';
 
@@ -19,7 +20,7 @@ export type ActiveApiKeyLookup = {
 export async function createApiKey(input: CreateApiKeyInput): Promise<ApiKey> {
   const [apiKey] = await db.insert(apiKeys).values(input).returning();
   if (apiKey === undefined) {
-    throw new Error('Insert into api_keys returned no row');
+    throw createLatticeError(500, 'internal_error', 'Insert into api_keys returned no row');
   }
   return apiKey;
 }

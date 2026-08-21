@@ -33,6 +33,9 @@ export type DispatchContext = {
   /** Fired after every attempt, including ones that lead to a thrown error, so a caller can
    * observe the final attempt count even when there's no successful result to read it from. */
   onAttempt?: (attempts: number) => void;
+  /** Aborts the in-flight provider request as soon as the client disconnects, instead of only
+   * finding out once the idle/request timeout would have fired anyway. */
+  clientSignal?: AbortSignal;
 };
 
 export type ChatCompletionDispatchResult = {
@@ -125,6 +128,12 @@ function toDispatchError(cause: unknown, attemptCount: number): HTTPError {
   return createLatticeError(502, 'provider_error', 'The provider failed to handle this request');
 }
 
+/** Combines the base timeout signal with the caller's disconnect signal, when given, so either
+ * one aborts the provider request. */
+function withClientSignal(base: AbortSignal, clientSignal: AbortSignal | undefined): AbortSignal {
+  return clientSignal === undefined ? base : AbortSignal.any([base, clientSignal]);
+}
+
 /**
  * `apiKey` may legitimately be `undefined` for a self-hosted provider running without
  * authentication. This only throws when the provider has no credentials entry or no
@@ -168,7 +177,10 @@ export async function createChatCompletion(
       const response = await adapter.createChatCompletion(request, {
         apiKey,
         providerModel: entry.providerModel,
-        signal: AbortSignal.timeout(NON_STREAMING_TIMEOUT_MS),
+        signal: withClientSignal(
+          AbortSignal.timeout(NON_STREAMING_TIMEOUT_MS),
+          context.clientSignal,
+        ),
       });
 
       const latencyMs = performance.now() - startedAt;
@@ -191,9 +203,24 @@ export async function createChatCompletion(
   throw toDispatchError(lastError, attemptOrder.length);
 }
 
-function createIdleAbortController(idleTimeoutMs: number): IdleAbortController {
+/** `clientSignal` aborting (the client disconnecting) immediately tears down the upstream
+ * request, rather than leaving it running until the idle timeout would eventually catch it. */
+function createIdleAbortController(
+  idleTimeoutMs: number,
+  clientSignal?: AbortSignal,
+): IdleAbortController {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
+
+  function onClientDisconnect(): void {
+    controller.abort(new DOMException('Client disconnected', 'AbortError'));
+  }
+
+  if (clientSignal?.aborted === true) {
+    onClientDisconnect();
+  } else {
+    clientSignal?.addEventListener('abort', onClientDisconnect, { once: true });
+  }
 
   function reset(): void {
     if (timer !== undefined) clearTimeout(timer);
@@ -205,6 +232,7 @@ function createIdleAbortController(idleTimeoutMs: number): IdleAbortController {
 
   function clear(): void {
     if (timer !== undefined) clearTimeout(timer);
+    clientSignal?.removeEventListener('abort', onClientDisconnect);
   }
 
   reset();
@@ -257,7 +285,7 @@ export async function beginChatCompletionStream(
     attempts += 1;
     context.onAttempt?.(attempts);
     const { adapter, apiKey } = resolveProvider(deps, entry.provider);
-    const idle = createIdleAbortController(STREAM_IDLE_TIMEOUT_MS);
+    const idle = createIdleAbortController(STREAM_IDLE_TIMEOUT_MS, context.clientSignal);
 
     try {
       const generator = adapter.streamChatCompletion(request, {

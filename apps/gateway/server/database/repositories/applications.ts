@@ -1,4 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
+import { createLatticeError } from '../../utils/errors.ts';
 import { db } from '../client.ts';
 import { applications } from '../schema.ts';
 
@@ -15,7 +16,7 @@ export type UpdateApplicationInput = {
 export async function createApplication(name: string): Promise<Application> {
   const [application] = await db.insert(applications).values({ name }).returning();
   if (application === undefined) {
-    throw new Error('Insert into applications returned no row');
+    throw createLatticeError(500, 'internal_error', 'Insert into applications returned no row');
   }
   return application;
 }

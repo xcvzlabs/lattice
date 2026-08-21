@@ -22,7 +22,11 @@ import {
 import { estimateCost } from '../../../utils/cost.ts';
 import { createLatticeError, toErrorLogFields } from '../../../utils/errors.ts';
 import { assertModelPermitted } from '../../../utils/policy.ts';
-import { assertWithinQuota } from '../../../utils/quota.ts';
+import {
+  releaseQuotaReservation,
+  reserveQuota,
+  type QuotaReservation,
+} from '../../../utils/quota.ts';
 import { getApplication, getRequestId } from '../../../utils/request-context.ts';
 
 const DONE_MESSAGE = '[DONE]';
@@ -65,6 +69,24 @@ function recordRequestLogInBackground(input: RecordRequestLogInput): void {
   })();
 }
 
+/** Same fire-and-forget contract: refunding a quota reservation for a request that never
+ * dispatched must never delay or fail the error response already on its way to the client. */
+function releaseQuotaReservationInBackground(reservation: QuotaReservation | undefined): void {
+  if (reservation === undefined) return;
+
+  void (async () => {
+    try {
+      await releaseQuotaReservation(reservation);
+    } catch (error) {
+      log.error({
+        message: 'Failed to release quota reservation',
+        error: error instanceof Error ? error.message : String(error),
+        applicationId: reservation.applicationId,
+      });
+    }
+  })();
+}
+
 type StreamLogContext = {
   applicationId: string;
   requestId: string;
@@ -72,6 +94,7 @@ type StreamLogContext = {
   servedBy: ModelRegistryEntry;
   attempts: number;
   latencyMs: number;
+  reservedTokens: number | undefined;
 };
 
 async function drainStreamInBackground(
@@ -105,6 +128,7 @@ async function drainStreamInBackground(
       promptTokens: lastUsage?.prompt_tokens,
       completionTokens: lastUsage?.completion_tokens,
       totalTokens: lastUsage?.total_tokens,
+      reservedTokens: context.reservedTokens,
     });
 
     recordRequestLogInBackground({
@@ -135,8 +159,6 @@ export default defineHandler(async (event: H3Event) => {
     throw createLatticeError(401, 'missing_api_key', 'Missing API key');
   }
 
-  await assertWithinQuota(application);
-
   const requestId = getRequestId(event.req) ?? Bun.randomUUIDv7();
   const requestLog = createRequestLogger({
     method: event.req.method,
@@ -165,12 +187,38 @@ export default defineHandler(async (event: H3Event) => {
 
   assertModelPermitted(application, request.model);
 
+  let reservation: QuotaReservation | undefined;
+
+  try {
+    reservation = await reserveQuota(application, request);
+  } catch (error) {
+    const { status, code } = toErrorLogFields(error);
+
+    requestLog.error(error instanceof Error ? error : String(error), { code: code ?? undefined });
+    requestLog.set({ status });
+    requestLog.emit();
+
+    recordRequestLogInBackground({
+      applicationId: application.id,
+      requestId,
+      model: request.model,
+      status: 'error',
+      httpStatus: status,
+      errorCode: code ?? undefined,
+      attempts: 0,
+      latencyMs: performance.now() - requestStartedAt,
+    });
+
+    throw error;
+  }
+
   let attemptsSoFar = 0;
   const dispatchContext: DispatchContext = {
     routingStrategy: application.routingStrategy ?? undefined,
     onAttempt: (attempts) => {
       attemptsSoFar = attempts;
     },
+    clientSignal: event.req.signal,
   };
 
   if (request.stream) {
@@ -197,6 +245,7 @@ export default defineHandler(async (event: H3Event) => {
         attempts: attemptsSoFar,
         latencyMs: performance.now() - requestStartedAt,
       });
+      releaseQuotaReservationInBackground(reservation);
 
       throw error;
     }
@@ -214,6 +263,7 @@ export default defineHandler(async (event: H3Event) => {
       servedBy: result.servedBy,
       attempts: result.attempts,
       latencyMs: result.latencyMs,
+      reservedTokens: reservation?.reservedTokens,
     });
 
     return stream.send();
@@ -240,6 +290,7 @@ export default defineHandler(async (event: H3Event) => {
       promptTokens: result.response.usage.prompt_tokens,
       completionTokens: result.response.usage.completion_tokens,
       totalTokens: result.response.usage.total_tokens,
+      reservedTokens: reservation?.reservedTokens,
     });
 
     recordRequestLogInBackground({
@@ -278,6 +329,7 @@ export default defineHandler(async (event: H3Event) => {
       attempts: attemptsSoFar,
       latencyMs: performance.now() - requestStartedAt,
     });
+    releaseQuotaReservationInBackground(reservation);
 
     throw error;
   }

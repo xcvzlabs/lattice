@@ -15,7 +15,8 @@ export type LatticeErrorCode =
   | 'quota_exceeded'
   | 'rate_limit_exceeded'
   | 'model_not_permitted'
-  | 'not_found';
+  | 'not_found'
+  | 'internal_error';
 
 export type LatticeErrorData = {
   code: LatticeErrorCode;
@@ -26,7 +27,7 @@ export type ErrorLogFields = {
   code: string | null;
 };
 
-const latticeErrorDataSchema = v.object({ code: v.string() });
+export const latticeErrorDataSchema = v.object({ code: v.string() });
 
 export function createLatticeError(
   status: number,
