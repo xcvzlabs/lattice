@@ -1,0 +1,10 @@
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { env } from '~~/server/utils/env.ts';
+
+function toConnectionString(): string {
+  const { host, port, user, password, database, ssl } = env.db;
+  const sslParam = ssl ? '?sslmode=require' : '?sslmode=disable';
+  return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}${sslParam}`;
+}
+
+export const db = drizzle(toConnectionString());

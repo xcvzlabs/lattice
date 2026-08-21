@@ -21,6 +21,8 @@
     "apps/dashboard": {
       "name": "dashboard",
       "dependencies": {
+        "@lattice/api-contract": "workspace:*",
+        "@lattice/env": "workspace:*",
         "@nuxt/ui": "catalog:client",
         "@nuxtjs/better-auth": "catalog:client",
         "@pinia/colada": "catalog:client",
@@ -28,15 +30,18 @@
         "@pinia/nuxt": "catalog:client",
         "@vueuse/nuxt": "catalog:client",
         "better-auth": "catalog:client",
+        "drizzle-orm": "catalog:server",
         "nuxt": "catalog:client",
         "pinia": "catalog:client",
         "pinia-plugin-persistedstate": "catalog:client",
         "tailwindcss": "catalog:client",
+        "valibot": "catalog:",
         "vue": "catalog:client",
         "vue-router": "catalog:client",
       },
       "devDependencies": {
         "@golar/vue": "catalog:client",
+        "drizzle-kit": "catalog:server",
         "golar": "catalog:client",
       },
     },
