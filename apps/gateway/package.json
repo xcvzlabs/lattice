@@ -1,0 +1,17 @@
+{
+  "name": "gateway",
+  "type": "module",
+  "scripts": {
+    "build": "nitro build",
+    "dev": "nitro dev",
+    "preview": "nitro preview"
+  },
+  "imports": {
+    "#*": "./*"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "nitro": "catalog:server",
+    "typescript": "catalog:"
+  }
+}

@@ -15,10 +15,18 @@
     "test:verbose": "vitest run --reporter=verbose"
   },
   "workspaces": {
-    "packages": [],
+    "packages": [
+      "apps/*"
+    ],
     "catalog": {
       "@types/bun": "1.4.0",
-      "typescript": "7.0.2"
+      "typescript": "7.0.2",
+      "valibot": "^1.4.2"
+    },
+    "catalogs": {
+      "server": {
+        "nitro": "^3.0.260610-beta"
+      }
     }
   },
   "devDependencies": {
@@ -40,5 +48,9 @@
   },
   "engines": {
     "node": "^26.0.0"
+  },
+  "dependencies": {
+    "nitro": "catalog:server",
+    "valibot": "catalog:"
   }
 }
