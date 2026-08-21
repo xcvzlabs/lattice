@@ -13,6 +13,12 @@
       "skillPath": "skills/install-anti-slop/SKILL.md",
       "computedHash": "b903a7ac2c823d473a4b0046834fccbab0bc75ee4fda8be4f81efa895d475b01"
     },
+    "nitro": {
+      "source": "antfu/skills",
+      "sourceType": "github",
+      "skillPath": "skills/nitro/SKILL.md",
+      "computedHash": "f8341eaf6fbdc604c2c8123a275407acea5a74ad3b0870cdd0ed2a3007e36c12"
+    },
     "unslop": {
       "source": "poteto/noodle",
       "sourceType": "github",

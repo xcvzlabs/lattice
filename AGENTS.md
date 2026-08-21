@@ -134,3 +134,24 @@
 - Make architectural decisions for the long term. Do not accept a stopgap that only works for now and is meant to be replaced later.
 - If you need a paragraph-long comment to justify why the workaround is OK, the code is wrong — fix the code.
 - Always use the unslop skill when generating texts as well as in adding jsdocs/tsdocs or just comments
+
+<!-- Nitro Rules Start -->
+
+This project is based on [Nitro v3](https://nitro.build), [h3](https://h3.dev/), and [Rolldown](https://rolldown.rs/).
+
+Refer to `node_modules/nitro/dist/docs/README.md` when working on server (your knowledge about Nitro v3 is likely outdated!).
+
+## Project Structure
+
+`server/` contains server-side code with supported subdirs (create as needed): `api/` (/api prefixed handlers), `routes/` (non-prefixed route handlers), `middleware/`, `plugins/`, `utils/`, `assets/`, and `tasks/`. `public/` holds static assets (copied, not bundled). Config files: `nitro.config.ts` (serverDir, routeRules, preset, etc.), `tsconfig.json`.
+
+## Conventions
+
+- Path alias `~/*` (tsconfig), use explicit `.ts` extensions
+
+## LLM References
+
+- Nitro V3 <https://nitro.build/llms.txt>
+- H3 V2 <https://h3.dev/llms.txt>
+
+<!-- Nitro Rules End -->
