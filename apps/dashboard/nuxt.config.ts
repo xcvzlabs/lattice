@@ -44,5 +44,6 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@pinia/colada-nuxt',
     'pinia-plugin-persistedstate/nuxt',
+    '@nuxtjs/better-auth',
   ],
 });

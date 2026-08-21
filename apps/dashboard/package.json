@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@nuxt/ui": "catalog:client",
+    "@nuxtjs/better-auth": "catalog:client",
     "@pinia/colada": "catalog:client",
     "@pinia/colada-nuxt": "catalog:client",
     "@pinia/nuxt": "catalog:client",
     "@vueuse/nuxt": "catalog:client",
+    "better-auth": "catalog:client",
     "nuxt": "catalog:client",
     "pinia": "catalog:client",
     "pinia-plugin-persistedstate": "catalog:client",
