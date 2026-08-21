@@ -1,4 +1,5 @@
 import {
+  doublePrecision,
   index,
   integer,
   numeric,
@@ -110,6 +111,26 @@ export const managementApiKeys = pgTable(
   },
   (table) => [uniqueIndex('management_api_keys_key_hash_idx').on(table.keyHash)],
 );
+
+// A fleet-wide view of each provider's circuit breaker, synced periodically to and from every
+// gateway instance's in-memory state (see routing/circuit-breaker.ts). Not transactionally tied
+// to routing decisions — an instance always trusts its own local state between syncs, so a
+// short replication lag here only ever costs a few extra requests against a failing provider,
+// never a correctness bug.
+export const providerCircuitState = pgTable('provider_circuit_state', {
+  provider: text('provider').primaryKey(),
+  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+  openedAt: timestamp('opened_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// The fleet-wide counterpart to routing/latency-tracker.ts's in-memory EWMA, synced on the same
+// schedule and with the same staleness tolerance as provider_circuit_state above.
+export const providerLatencyState = pgTable('provider_latency_state', {
+  modelId: text('model_id').primaryKey(),
+  averageLatencyMs: doublePrecision('average_latency_ms').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 // Append-only observability history for every /v1/** request, success or failure. Written
 // best-effort (fire-and-forget), separate from usageRecords/applicationUsageCounters so this
