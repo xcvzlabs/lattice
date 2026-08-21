@@ -6,6 +6,14 @@ export default defineNuxtConfig({
   typescript: {
     typeCheck: true,
     strict: true,
+    tsConfig: {
+      compilerOptions: {
+        rootDir: '..',
+      },
+    },
+  },
+  experimental: {
+    typedPages: true,
   },
   app: {
     head: {
