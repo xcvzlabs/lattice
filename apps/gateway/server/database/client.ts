@@ -3,7 +3,7 @@ import { env } from '../utils/env.ts';
 
 function toConnectionString(): string {
   const { host, port, user, password, database, ssl } = env.db;
-  const sslParam = ssl ? '?sslmode=require' : '';
+  const sslParam = ssl ? '?sslmode=require' : '?sslmode=disable';
   return `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}${sslParam}`;
 }
 

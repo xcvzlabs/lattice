@@ -7,7 +7,7 @@ export async function verifyApiKey(key: string): Promise<Application | null> {
   const keyHash = hashApiKey(key, env.apiKeyPepper);
   const lookup = await findActiveApiKeyByHash(keyHash);
 
-  if (lookup === undefined) {
+  if (lookup === undefined || lookup.application.disabledAt !== null) {
     return null;
   }
 

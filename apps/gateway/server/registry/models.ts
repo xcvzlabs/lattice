@@ -14,13 +14,25 @@ export class ModelRegistryError extends Error {
 export const providerIdSchema = v.picklist(['openai', 'anthropic', 'google', 'ollama', 'vllm']);
 export type ProviderId = v.InferOutput<typeof providerIdSchema>;
 
+const modelPricingSchema = v.object({
+  inputPerMillionUsd: v.number(),
+  outputPerMillionUsd: v.number(),
+});
+export type ModelPricing = v.InferOutput<typeof modelPricingSchema>;
+
 const modelRegistryEntrySchema = v.object({
   id: v.pipe(v.string(), v.minLength(1)),
   provider: providerIdSchema,
   providerModel: v.pipe(v.string(), v.minLength(1)),
-  fallback: v.optional(v.string()),
-  /** Alternate names a client may use in the `model` field. Must resolve to this `id`, never to `fallback`. */
+  /** Ordered candidate chain tried after this entry, e.g. `[gpt-4o's fallbacks]`. Flat and
+   * explicit per entry rather than a pointer chain, so dispatch never has to walk or detect
+   * cycles across multiple entries. */
+  fallbacks: v.optional(v.array(v.pipe(v.string(), v.minLength(1)))),
+  /** Alternate names a client may use in the `model` field. Must resolve to this `id`, never to a fallback. */
   aliases: v.optional(v.array(v.pipe(v.string(), v.minLength(1)))),
+  /** Static, deploy-time pricing used only to rank candidates under a `cost` routing strategy.
+   * Not a billing source of truth. */
+  pricing: v.optional(modelPricingSchema),
 });
 export type ModelRegistryEntry = v.InferOutput<typeof modelRegistryEntrySchema>;
 
@@ -60,14 +72,26 @@ function validateReferences(
   }
 
   for (const model of registry.models) {
-    if (model.fallback === model.id) {
-      throw new ModelRegistryError(`Model "${model.id}" cannot fall back to itself`);
-    }
+    const seenFallbacks = new Set<string>();
 
-    if (model.fallback !== undefined && !ids.has(model.fallback)) {
-      throw new ModelRegistryError(
-        `Model "${model.id}" has a fallback "${model.fallback}" that is not a known model id (aliases are not valid fallback targets)`,
-      );
+    for (const fallback of model.fallbacks ?? []) {
+      if (fallback === model.id) {
+        throw new ModelRegistryError(`Model "${model.id}" cannot fall back to itself`);
+      }
+
+      if (!ids.has(fallback)) {
+        throw new ModelRegistryError(
+          `Model "${model.id}" has a fallback "${fallback}" that is not a known model id (aliases are not valid fallback targets)`,
+        );
+      }
+
+      if (seenFallbacks.has(fallback)) {
+        throw new ModelRegistryError(
+          `Model "${model.id}" lists fallback "${fallback}" more than once`,
+        );
+      }
+
+      seenFallbacks.add(fallback);
     }
 
     if (providerCredentials[model.provider] === undefined) {
