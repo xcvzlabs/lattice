@@ -149,9 +149,10 @@ Refer to `node_modules/nitro/dist/docs/README.md` when working on server (your k
 
 - Path alias `~/*` (tsconfig), use explicit `.ts` extensions
 
+<!-- Nitro Rules End -->
+
 ## LLM References
 
 - Nitro V3 <https://nitro.build/llms.txt>
 - H3 V2 <https://h3.dev/llms.txt>
-
-<!-- Nitro Rules End -->
+- Nuxt V4 <https://nuxt.com/llms.txt>
