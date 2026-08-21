@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseOpenAiChunk } from '~/apps/gateway/server/providers/openai/stream.ts';
+import { parseOpenAiChunk } from '~/apps/gateway/server/providers/openai-compatible/stream.ts';
 
 describe('parseOpenAiChunk', () => {
   it('maps a delta chunk into the canonical shape', () => {

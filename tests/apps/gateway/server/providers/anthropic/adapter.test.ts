@@ -11,6 +11,7 @@ const baseRequest: ChatCompletionRequest = {
   stream: false,
 };
 
+// oxlint-disable-next-line no-unnecessary-type-parameters
 function jsonResponse<T>(body: T, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -28,13 +29,15 @@ function anthropicSseResponse(events: { event: string; data: unknown }[]): Respo
 describe('createAnthropicAdapter.createChatCompletion', () => {
   it('maps the Anthropic response back to the canonical shape', async () => {
     const adapter = createAnthropicAdapter({
-      fetchImpl: async () =>
-        jsonResponse({
-          id: 'msg_1',
-          content: [{ type: 'text', text: 'Hi there' }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 4, output_tokens: 2 },
-        }),
+      fetchImpl: () =>
+        Promise.resolve(
+          jsonResponse({
+            id: 'msg_1',
+            content: [{ type: 'text', text: 'Hi there' }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 4, output_tokens: 2 },
+          }),
+        ),
     });
 
     const result = await adapter.createChatCompletion(baseRequest, {
@@ -49,7 +52,7 @@ describe('createAnthropicAdapter.createChatCompletion', () => {
 
   it('throws a ProviderRequestError carrying the upstream status on failure', async () => {
     const adapter = createAnthropicAdapter({
-      fetchImpl: async () => new Response('overloaded', { status: 529 }),
+      fetchImpl: () => Promise.resolve(new Response('overloaded', { status: 529 })),
     });
 
     await expect(
@@ -65,26 +68,31 @@ describe('createAnthropicAdapter.createChatCompletion', () => {
 describe('createAnthropicAdapter.streamChatCompletion', () => {
   it('yields canonical chunks parsed from the named-event SSE stream', async () => {
     const adapter = createAnthropicAdapter({
-      fetchImpl: async () =>
-        anthropicSseResponse([
-          {
-            event: 'message_start',
-            data: { type: 'message_start', message: { id: 'msg_1', usage: { input_tokens: 4 } } },
-          },
-          {
-            event: 'content_block_delta',
-            data: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hi' } },
-          },
-          {
-            event: 'message_delta',
-            data: {
-              type: 'message_delta',
-              delta: { stop_reason: 'end_turn' },
-              usage: { output_tokens: 1 },
+      fetchImpl: () =>
+        Promise.resolve(
+          anthropicSseResponse([
+            {
+              event: 'message_start',
+              data: {
+                type: 'message_start',
+                message: { id: 'msg_1', usage: { input_tokens: 4 } },
+              },
             },
-          },
-          { event: 'message_stop', data: { type: 'message_stop' } },
-        ]),
+            {
+              event: 'content_block_delta',
+              data: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hi' } },
+            },
+            {
+              event: 'message_delta',
+              data: {
+                type: 'message_delta',
+                delta: { stop_reason: 'end_turn' },
+                usage: { output_tokens: 1 },
+              },
+            },
+            { event: 'message_stop', data: { type: 'message_stop' } },
+          ]),
+        ),
     });
 
     const chunks: ChatCompletionChunk[] = [];

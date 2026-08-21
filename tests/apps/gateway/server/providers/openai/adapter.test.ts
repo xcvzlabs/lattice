@@ -11,6 +11,7 @@ const baseRequest: ChatCompletionRequest = {
   stream: false,
 };
 
+// oxlint-disable-next-line no-unnecessary-type-parameters
 function jsonResponse<T>(body: T, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -26,13 +27,15 @@ function sseResponse(lines: string[]): Response {
 describe('createOpenAiAdapter.createChatCompletion', () => {
   it('maps the OpenAI response back to the canonical shape', async () => {
     const adapter = createOpenAiAdapter({
-      fetchImpl: async () =>
-        jsonResponse({
-          id: 'chatcmpl-1',
-          created: 1,
-          choices: [{ index: 0, message: { content: 'Hi' }, finish_reason: 'stop' }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
+      fetchImpl: () =>
+        Promise.resolve(
+          jsonResponse({
+            id: 'chatcmpl-1',
+            created: 1,
+            choices: [{ index: 0, message: { content: 'Hi' }, finish_reason: 'stop' }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        ),
     });
 
     const result = await adapter.createChatCompletion(baseRequest, {
@@ -46,7 +49,7 @@ describe('createOpenAiAdapter.createChatCompletion', () => {
 
   it('throws a ProviderRequestError carrying the upstream status on failure', async () => {
     const adapter = createOpenAiAdapter({
-      fetchImpl: async () => new Response('server error', { status: 503 }),
+      fetchImpl: () => Promise.resolve(new Response('server error', { status: 503 })),
     });
 
     await expect(
@@ -62,22 +65,24 @@ describe('createOpenAiAdapter.createChatCompletion', () => {
 describe('createOpenAiAdapter.streamChatCompletion', () => {
   it('yields canonical chunks parsed from the SSE stream', async () => {
     const adapter = createOpenAiAdapter({
-      fetchImpl: async () =>
-        sseResponse([
-          JSON.stringify({
-            id: 'chatcmpl-1',
-            created: 1,
-            choices: [
-              { index: 0, delta: { role: 'assistant', content: 'Hi' }, finish_reason: null },
-            ],
-          }),
-          JSON.stringify({
-            id: 'chatcmpl-1',
-            created: 1,
-            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-          }),
-        ]),
+      fetchImpl: () =>
+        Promise.resolve(
+          sseResponse([
+            JSON.stringify({
+              id: 'chatcmpl-1',
+              created: 1,
+              choices: [
+                { index: 0, delta: { role: 'assistant', content: 'Hi' }, finish_reason: null },
+              ],
+            }),
+            JSON.stringify({
+              id: 'chatcmpl-1',
+              created: 1,
+              choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+              usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            }),
+          ]),
+        ),
     });
 
     const chunks: ChatCompletionChunk[] = [];

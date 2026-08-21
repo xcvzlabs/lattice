@@ -1,6 +1,6 @@
 import type { ChatCompletionRequest } from '~/packages/api-contract/src/schemas/chat-completion.ts';
 import { describe, expect, it } from 'vitest';
-import { toOpenAiRequest } from '~/apps/gateway/server/providers/openai/request.ts';
+import { toOpenAiRequest } from '~/apps/gateway/server/providers/openai-compatible/request.ts';
 
 const baseRequest: ChatCompletionRequest = {
   model: 'gpt-4o',

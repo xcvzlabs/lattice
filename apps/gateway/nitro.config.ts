@@ -11,5 +11,10 @@ export default defineConfig({
       handler: './server/handlers/auth-middleware.ts',
       middleware: true,
     },
+    {
+      route: '/v1/**',
+      handler: './server/handlers/rate-limit-middleware.ts',
+      middleware: true,
+    },
   ],
 });

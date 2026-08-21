@@ -4,23 +4,24 @@ import type {
   ChatCompletionResponse,
 } from '@lattice/api-contract';
 import type { ProviderAdapter } from '../providers/types.ts';
+import type { ProviderCredentials } from '../registry/credentials.ts';
 import { HTTPError } from 'nitro';
 import { ProviderRequestError } from '../providers/types.ts';
 import {
   lookupModel,
   type ModelRegistryConfig,
   type ModelRegistryEntry,
-  type ProviderApiKeys,
   type ProviderId,
 } from '../registry/models.ts';
 import { createLatticeError } from '../utils/errors.ts';
+import { currentState, recordFailure, recordSuccess } from './circuit-breaker.ts';
 
-export type ProviderAdapters = Record<ProviderId, ProviderAdapter>;
+export type ProviderAdapters = Partial<Record<ProviderId, ProviderAdapter>>;
 
 export type DispatchDeps = {
   registry: ModelRegistryConfig;
   adapters: ProviderAdapters;
-  providerApiKeys: ProviderApiKeys;
+  providerCredentials: ProviderCredentials;
 };
 
 export type ChatCompletionDispatchResult = {
@@ -40,6 +41,11 @@ type IdleAbortController = {
   clear: () => void;
 };
 
+type ResolvedProvider = {
+  adapter: ProviderAdapter;
+  apiKey?: string;
+};
+
 const NON_STREAMING_TIMEOUT_MS = 60_000;
 const STREAM_IDLE_TIMEOUT_MS = 30_000;
 
@@ -51,7 +57,7 @@ export function isRetryableProviderError(cause: unknown): boolean {
   return false;
 }
 
-function resolveAttemptOrder(
+function candidateOrder(
   registry: ModelRegistryConfig,
   modelId: string,
 ): ModelRegistryEntry[] | undefined {
@@ -61,6 +67,23 @@ function resolveAttemptOrder(
 
   const fallback = lookupModel(registry, primary.fallback);
   return fallback === undefined ? [primary] : [primary, fallback];
+}
+
+/**
+ * Drops any entry whose circuit is `open`, so a known-down provider doesn't eat a full
+ * request timeout before falling over. Never drops down to zero attempts: if every
+ * candidate is open, the original order is tried anyway rather than failing the request
+ * on our own circuit-breaker bookkeeping.
+ */
+function resolveAttemptOrder(
+  registry: ModelRegistryConfig,
+  modelId: string,
+): ModelRegistryEntry[] | undefined {
+  const candidates = candidateOrder(registry, modelId);
+  if (candidates === undefined) return undefined;
+
+  const usable = candidates.filter((entry) => currentState(entry.provider) !== 'open');
+  return usable.length > 0 ? usable : candidates;
 }
 
 /** Converts an exhausted retry loop's last error into a client-facing envelope; errors that are
@@ -82,18 +105,22 @@ function toDispatchError(cause: unknown, attemptCount: number): HTTPError {
   return createLatticeError(502, 'provider_error', 'The provider failed to handle this request');
 }
 
-function requireApiKey(providerApiKeys: ProviderApiKeys, provider: ProviderId): string {
-  const apiKey = providerApiKeys[provider];
+/**
+ * `apiKey` may legitimately be `undefined` for a self-hosted provider running without
+ * authentication. This only throws when the provider has no credentials entry or no
+ * constructed adapter at all, which the registry's boot-time validation should already
+ * have prevented for any routable model, so a request-time failure here means dispatch
+ * deps drifted out of sync with the registry, not a real per-request condition.
+ */
+function resolveProvider(deps: DispatchDeps, provider: ProviderId): ResolvedProvider {
+  const credentials = deps.providerCredentials[provider];
+  const adapter = deps.adapters[provider];
 
-  if (apiKey === undefined) {
-    throw createLatticeError(
-      500,
-      'provider_error',
-      `No API key configured for provider "${provider}"`,
-    );
+  if (credentials === undefined || adapter === undefined) {
+    throw createLatticeError(500, 'provider_error', `Provider "${provider}" is not configured`);
   }
 
-  return apiKey;
+  return { adapter, apiKey: credentials.apiKey };
 }
 
 export async function createChatCompletion(
@@ -109,18 +136,17 @@ export async function createChatCompletion(
   let lastError: unknown;
 
   for (const entry of attemptOrder) {
-    const apiKey = requireApiKey(deps.providerApiKeys, entry.provider);
+    const { adapter, apiKey } = resolveProvider(deps, entry.provider);
 
     try {
-      // This is a failover loop, not a batch. The fallback must only be called if the primary
-      // actually fails, so Promise.all would be wrong here, not a speedup.
       // oxlint-disable-next-line no-await-in-loop
-      const response = await deps.adapters[entry.provider].createChatCompletion(request, {
+      const response = await adapter.createChatCompletion(request, {
         apiKey,
         providerModel: entry.providerModel,
         signal: AbortSignal.timeout(NON_STREAMING_TIMEOUT_MS),
       });
 
+      recordSuccess(entry.provider);
       return {
         response,
         servedBy: entry,
@@ -128,6 +154,7 @@ export async function createChatCompletion(
     } catch (error) {
       lastError = error;
       if (!isRetryableProviderError(error)) throw error;
+      recordFailure(entry.provider);
     }
   }
 
@@ -194,18 +221,16 @@ export async function beginChatCompletionStream(
   let lastError: unknown;
 
   for (const entry of attemptOrder) {
-    const apiKey = requireApiKey(deps.providerApiKeys, entry.provider);
+    const { adapter, apiKey } = resolveProvider(deps, entry.provider);
     const idle = createIdleAbortController(STREAM_IDLE_TIMEOUT_MS);
 
     try {
-      const generator = deps.adapters[entry.provider].streamChatCompletion(request, {
+      const generator = adapter.streamChatCompletion(request, {
         apiKey,
         providerModel: entry.providerModel,
         signal: idle.signal,
       });
 
-      // Same reasoning as above. This only ever runs for the current attempt, and a fallback
-      // attempt must not start until this one has proven itself unusable.
       // oxlint-disable-next-line no-await-in-loop
       const { value, done } = await generator.next();
 
@@ -218,6 +243,7 @@ export async function beginChatCompletionStream(
       }
 
       idle.reset();
+      recordSuccess(entry.provider);
 
       return {
         firstChunk: value,
@@ -227,7 +253,9 @@ export async function beginChatCompletionStream(
     } catch (error) {
       idle.clear();
       lastError = error;
+
       if (!isRetryableProviderError(error)) throw error;
+      recordFailure(entry.provider);
     }
   }
 

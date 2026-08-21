@@ -11,11 +11,20 @@ export type LatticeErrorCode =
   | 'provider_error'
   | 'all_providers_failed'
   | 'model_registry_invalid'
-  | 'invalid_env';
+  | 'invalid_env'
+  | 'quota_exceeded'
+  | 'rate_limit_exceeded';
 
 export type LatticeErrorData = {
   code: LatticeErrorCode;
 };
+
+export type ErrorLogFields = {
+  status: number;
+  code: string | null;
+};
+
+const latticeErrorDataSchema = v.object({ code: v.string() });
 
 export function createLatticeError(
   status: number,
@@ -35,16 +44,19 @@ export function errorType(status: number): string {
   return 'invalid_request_error';
 }
 
-const latticeErrorDataSchema = v.object({ code: v.string() });
-
-export type ErrorLogFields = {
-  status: number;
-  code: string | null;
-};
-
 /** Extracts the fields worth putting in a structured log line from a caught dispatch error. */
 export function toErrorLogFields(cause: unknown): ErrorLogFields {
-  if (!HTTPError.isError(cause)) return { status: 500, code: null };
+  if (!HTTPError.isError(cause)) {
+    return {
+      status: 500,
+      code: null,
+    };
+  }
+
   const parsed = v.safeParse(latticeErrorDataSchema, cause.data);
-  return { status: cause.status, code: parsed.success ? parsed.output.code : null };
+
+  return {
+    status: cause.status,
+    code: parsed.success ? parsed.output.code : null,
+  };
 }

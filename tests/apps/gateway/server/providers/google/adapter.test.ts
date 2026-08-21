@@ -11,6 +11,7 @@ const baseRequest: ChatCompletionRequest = {
   stream: false,
 };
 
+// oxlint-disable-next-line no-unnecessary-type-parameters
 function jsonResponse<T>(body: T, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -26,11 +27,13 @@ function geminiSseResponse(events: unknown[]): Response {
 describe('createGoogleAdapter.createChatCompletion', () => {
   it('maps the Gemini response back to the canonical shape', async () => {
     const adapter = createGoogleAdapter({
-      fetchImpl: async () =>
-        jsonResponse({
-          candidates: [{ content: { parts: [{ text: 'Hi there' }] }, finishReason: 'STOP' }],
-          usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 2, totalTokenCount: 6 },
-        }),
+      fetchImpl: () =>
+        Promise.resolve(
+          jsonResponse({
+            candidates: [{ content: { parts: [{ text: 'Hi there' }] }, finishReason: 'STOP' }],
+            usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 2, totalTokenCount: 6 },
+          }),
+        ),
     });
 
     const result = await adapter.createChatCompletion(baseRequest, {
@@ -45,7 +48,7 @@ describe('createGoogleAdapter.createChatCompletion', () => {
 
   it('throws a ProviderRequestError carrying the upstream status on failure', async () => {
     const adapter = createGoogleAdapter({
-      fetchImpl: async () => new Response('rate limited', { status: 429 }),
+      fetchImpl: () => Promise.resolve(new Response('rate limited', { status: 429 })),
     });
 
     await expect(
@@ -61,14 +64,16 @@ describe('createGoogleAdapter.createChatCompletion', () => {
 describe('createGoogleAdapter.streamChatCompletion', () => {
   it('yields canonical chunks parsed from the data-only SSE stream', async () => {
     const adapter = createGoogleAdapter({
-      fetchImpl: async () =>
-        geminiSseResponse([
-          { candidates: [{ content: { parts: [{ text: 'Hi' }] } }] },
-          {
-            candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'STOP' }],
-            usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 1, totalTokenCount: 5 },
-          },
-        ]),
+      fetchImpl: () =>
+        Promise.resolve(
+          geminiSseResponse([
+            { candidates: [{ content: { parts: [{ text: 'Hi' }] } }] },
+            {
+              candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'STOP' }],
+              usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 1, totalTokenCount: 5 },
+            },
+          ]),
+        ),
     });
 
     const chunks: ChatCompletionChunk[] = [];
