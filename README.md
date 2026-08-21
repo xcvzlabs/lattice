@@ -414,14 +414,14 @@ The initial focus is a reliable internal AI gateway.
 
 ### Phase 2
 
-- [ ] Ollama support
-- [ ] vLLM support
-- [ ] Model aliases
-- [ ] Usage tracking
-- [ ] Token accounting
-- [ ] Rate limiting
-- [ ] Application quotas
-- [ ] Provider health monitoring
+- [x] Ollama support
+- [x] vLLM support
+- [x] Model aliases
+- [x] Usage tracking
+- [x] Token accounting
+- [x] Rate limiting
+- [x] Application quotas
+- [x] Provider health monitoring
 
 ### Phase 3
 
