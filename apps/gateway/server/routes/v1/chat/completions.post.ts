@@ -1,3 +1,4 @@
+import type { ModelRegistryEntry } from '../../../registry/models.ts';
 import {
   chatCompletionRequestSchema,
   type ChatCompletionChunk,
@@ -7,10 +8,20 @@ import { createRequestLogger, log } from 'evlog';
 import { defineHandler, type H3Event } from 'nitro';
 import { createEventStream } from 'nitro/h3';
 import * as v from 'valibot';
+import {
+  recordRequestLog,
+  type RecordRequestLogInput,
+} from '../../../database/repositories/request-logs.ts';
 import { recordUsage, type RecordUsageInput } from '../../../database/repositories/usage.ts';
 import { dispatchDeps } from '../../../routing/deps.ts';
-import { beginChatCompletionStream, createChatCompletion } from '../../../routing/dispatch.ts';
+import {
+  beginChatCompletionStream,
+  createChatCompletion,
+  type DispatchContext,
+} from '../../../routing/dispatch.ts';
+import { estimateCost } from '../../../utils/cost.ts';
 import { createLatticeError, toErrorLogFields } from '../../../utils/errors.ts';
+import { assertModelPermitted } from '../../../utils/policy.ts';
 import { assertWithinQuota } from '../../../utils/quota.ts';
 import { getApplication, getRequestId } from '../../../utils/request-context.ts';
 
@@ -38,10 +49,29 @@ function recordUsageInBackground(input: RecordUsageInput): void {
   })();
 }
 
+/** Same fire-and-forget contract as recordUsageInBackground: observability must never delay or
+ * fail the client response. */
+function recordRequestLogInBackground(input: RecordRequestLogInput): void {
+  void (async () => {
+    try {
+      await recordRequestLog(input);
+    } catch (error) {
+      log.error({
+        message: 'Failed to record request log',
+        error: error instanceof Error ? error.message : String(error),
+        applicationId: input.applicationId,
+      });
+    }
+  })();
+}
+
 type StreamLogContext = {
   applicationId: string;
+  requestId: string;
   model: string;
-  provider: string;
+  servedBy: ModelRegistryEntry;
+  attempts: number;
+  latencyMs: number;
 };
 
 async function drainStreamInBackground(
@@ -61,7 +91,9 @@ async function drainStreamInBackground(
     log.error({
       message: 'Streaming response interrupted after bytes were sent to the client',
       error: error instanceof Error ? error.message : String(error),
-      ...context,
+      applicationId: context.applicationId,
+      model: context.model,
+      provider: context.servedBy.provider,
     });
   } finally {
     await stream.close();
@@ -69,15 +101,34 @@ async function drainStreamInBackground(
     recordUsageInBackground({
       applicationId: context.applicationId,
       model: context.model,
-      provider: context.provider,
+      provider: context.servedBy.provider,
       promptTokens: lastUsage?.prompt_tokens,
       completionTokens: lastUsage?.completion_tokens,
       totalTokens: lastUsage?.total_tokens,
+    });
+
+    recordRequestLogInBackground({
+      applicationId: context.applicationId,
+      requestId: context.requestId,
+      model: context.model,
+      provider: context.servedBy.provider,
+      status: 'success',
+      httpStatus: 200,
+      attempts: context.attempts,
+      latencyMs: context.latencyMs,
+      promptTokens: lastUsage?.prompt_tokens,
+      completionTokens: lastUsage?.completion_tokens,
+      totalTokens: lastUsage?.total_tokens,
+      estimatedCostUsd: estimateCost(context.servedBy, {
+        promptTokens: lastUsage?.prompt_tokens,
+        completionTokens: lastUsage?.completion_tokens,
+      }),
     });
   }
 }
 
 export default defineHandler(async (event: H3Event) => {
+  const requestStartedAt = performance.now();
   const application = getApplication(event.req);
 
   if (application === undefined) {
@@ -86,10 +137,11 @@ export default defineHandler(async (event: H3Event) => {
 
   await assertWithinQuota(application);
 
+  const requestId = getRequestId(event.req) ?? Bun.randomUUIDv7();
   const requestLog = createRequestLogger({
     method: event.req.method,
     path: event.url.pathname,
-    requestId: getRequestId(event.req) ?? Bun.randomUUIDv7(),
+    requestId,
   });
 
   requestLog.set({ applicationId: application.id });
@@ -111,8 +163,44 @@ export default defineHandler(async (event: H3Event) => {
   const request = parsedBody.output;
   requestLog.set({ model: request.model });
 
+  assertModelPermitted(application, request.model);
+
+  let attemptsSoFar = 0;
+  const dispatchContext: DispatchContext = {
+    routingStrategy: application.routingStrategy ?? undefined,
+    onAttempt: (attempts) => {
+      attemptsSoFar = attempts;
+    },
+  };
+
   if (request.stream) {
-    const result = await beginChatCompletionStream(request, dispatchDeps);
+    let result: Awaited<ReturnType<typeof beginChatCompletionStream>>;
+
+    try {
+      result = await beginChatCompletionStream(request, dispatchDeps, dispatchContext);
+    } catch (error) {
+      const { status, code } = toErrorLogFields(error);
+
+      requestLog.error(error instanceof Error ? error : String(error), {
+        code: code ?? undefined,
+      });
+      requestLog.set({ status });
+      requestLog.emit();
+
+      recordRequestLogInBackground({
+        applicationId: application.id,
+        requestId,
+        model: request.model,
+        status: 'error',
+        httpStatus: status,
+        errorCode: code ?? undefined,
+        attempts: attemptsSoFar,
+        latencyMs: performance.now() - requestStartedAt,
+      });
+
+      throw error;
+    }
+
     const stream = createEventStream(event);
 
     requestLog.set({ provider: result.servedBy.provider, status: 200 });
@@ -121,15 +209,18 @@ export default defineHandler(async (event: H3Event) => {
     await stream.push(toSseMessage(result.firstChunk));
     void drainStreamInBackground(result.remaining, stream, {
       applicationId: application.id,
+      requestId,
       model: request.model,
-      provider: result.servedBy.provider,
+      servedBy: result.servedBy,
+      attempts: result.attempts,
+      latencyMs: result.latencyMs,
     });
 
     return stream.send();
   }
 
   try {
-    const result = await createChatCompletion(request, dispatchDeps);
+    const result = await createChatCompletion(request, dispatchDeps, dispatchContext);
 
     requestLog.set({
       provider: result.servedBy.provider,
@@ -151,6 +242,24 @@ export default defineHandler(async (event: H3Event) => {
       totalTokens: result.response.usage.total_tokens,
     });
 
+    recordRequestLogInBackground({
+      applicationId: application.id,
+      requestId,
+      model: request.model,
+      provider: result.servedBy.provider,
+      status: 'success',
+      httpStatus: 200,
+      attempts: result.attempts,
+      latencyMs: result.latencyMs,
+      promptTokens: result.response.usage.prompt_tokens,
+      completionTokens: result.response.usage.completion_tokens,
+      totalTokens: result.response.usage.total_tokens,
+      estimatedCostUsd: estimateCost(result.servedBy, {
+        promptTokens: result.response.usage.prompt_tokens,
+        completionTokens: result.response.usage.completion_tokens,
+      }),
+    });
+
     return result.response;
   } catch (error) {
     const { status, code } = toErrorLogFields(error);
@@ -158,6 +267,17 @@ export default defineHandler(async (event: H3Event) => {
     requestLog.error(error instanceof Error ? error : String(error), { code: code ?? undefined });
     requestLog.set({ status });
     requestLog.emit();
+
+    recordRequestLogInBackground({
+      applicationId: application.id,
+      requestId,
+      model: request.model,
+      status: 'error',
+      httpStatus: status,
+      errorCode: code ?? undefined,
+      attempts: attemptsSoFar,
+      latencyMs: performance.now() - requestStartedAt,
+    });
 
     throw error;
   }

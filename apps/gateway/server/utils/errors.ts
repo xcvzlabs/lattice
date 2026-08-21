@@ -13,7 +13,9 @@ export type LatticeErrorCode =
   | 'model_registry_invalid'
   | 'invalid_env'
   | 'quota_exceeded'
-  | 'rate_limit_exceeded';
+  | 'rate_limit_exceeded'
+  | 'model_not_permitted'
+  | 'not_found';
 
 export type LatticeErrorData = {
   code: LatticeErrorCode;
