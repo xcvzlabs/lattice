@@ -1,4 +1,4 @@
-import { defineEnv } from '@lattice/env';
+import { booleanEnvSchema, defineEnv } from '@lattice/env';
 import * as v from 'valibot';
 
 const MIN_PEPPER_LENGTH = 32;
@@ -18,7 +18,7 @@ export const env = defineEnv({
       port: v.pipe(v.string(), v.toNumber()),
       user: v.string(),
       password: v.string(),
-      ssl: v.pipe(v.string(), v.toBoolean()),
+      ssl: booleanEnvSchema,
       database: v.string(),
     }),
   }),
