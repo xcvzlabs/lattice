@@ -60,7 +60,8 @@ function succeedingAdapter(
 ): ProviderAdapter {
   return {
     id,
-    createChatCompletion: async () => response,
+    createChatCompletion: () => Promise.resolve(response),
+    // oxlint-disable-next-line require-await
     async *streamChatCompletion() {
       yield {
         id: response.id,
@@ -82,10 +83,10 @@ function succeedingAdapter(
 function failingAdapter(id: 'openai' | 'anthropic' | 'google', cause: unknown): ProviderAdapter {
   return {
     id,
-    createChatCompletion: async () => {
+    createChatCompletion: () => {
       throw cause;
     },
-    // eslint-disable-next-line require-yield
+    // eslint-disable-next-line require-yield, require-await
     async *streamChatCompletion() {
       throw cause;
     },
@@ -145,9 +146,9 @@ describe('createChatCompletion', () => {
         openai: succeedingAdapter('openai', stubResponse('primary')),
         anthropic: {
           ...succeedingAdapter('anthropic', stubResponse('fallback')),
-          createChatCompletion: async () => {
+          createChatCompletion: () => {
             fallbackCalled = true;
-            return stubResponse('fallback');
+            return Promise.resolve(stubResponse('fallback'));
           },
         },
         google: succeedingAdapter('google', stubResponse('c')),
@@ -185,9 +186,9 @@ describe('createChatCompletion', () => {
         openai: failingAdapter('openai', new ProviderRequestError('openai', 400, 'bad request')),
         anthropic: {
           ...succeedingAdapter('anthropic', stubResponse('fallback')),
-          createChatCompletion: async () => {
+          createChatCompletion: () => {
             fallbackCalled = true;
-            return stubResponse('fallback');
+            return Promise.resolve(stubResponse('fallback'));
           },
         },
         google: succeedingAdapter('google', stubResponse('c')),
