@@ -1,0 +1,290 @@
+import type { ProviderAdapter } from '~/apps/gateway/server/providers/types.ts';
+import type {
+  ModelRegistryConfig,
+  ProviderApiKeys,
+} from '~/apps/gateway/server/registry/models.ts';
+import type {
+  ChatCompletionChunk,
+  ChatCompletionRequest,
+  ChatCompletionResponse,
+} from '~/packages/api-contract/src/schemas/chat-completion.ts';
+import { describe, expect, it } from 'vitest';
+import { ProviderRequestError } from '~/apps/gateway/server/providers/types.ts';
+import {
+  beginChatCompletionStream,
+  createChatCompletion,
+  isRetryableProviderError,
+  type DispatchDeps,
+} from '~/apps/gateway/server/routing/dispatch.ts';
+
+const baseRequest: ChatCompletionRequest = {
+  model: 'primary-model',
+  messages: [{ role: 'user', content: 'Hello' }],
+  stream: false,
+};
+
+const registryWithFallback: ModelRegistryConfig = {
+  version: 1,
+  models: [
+    {
+      id: 'primary-model',
+      provider: 'openai',
+      providerModel: 'gpt-4o',
+      fallback: 'fallback-model',
+    },
+    { id: 'fallback-model', provider: 'anthropic', providerModel: 'claude-sonnet-4-5' },
+  ],
+};
+
+const registryWithoutFallback: ModelRegistryConfig = {
+  version: 1,
+  models: [{ id: 'primary-model', provider: 'openai', providerModel: 'gpt-4o' }],
+};
+
+const providerApiKeys: ProviderApiKeys = { openai: 'sk-test', anthropic: 'sk-test' };
+
+function stubResponse(id: string): ChatCompletionResponse {
+  return {
+    id,
+    object: 'chat.completion',
+    created: 1,
+    model: 'primary-model',
+    choices: [{ index: 0, message: { role: 'assistant', content: id }, finish_reason: 'stop' }],
+    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+  };
+}
+
+function succeedingAdapter(
+  id: 'openai' | 'anthropic' | 'google',
+  response: ChatCompletionResponse,
+): ProviderAdapter {
+  return {
+    id,
+    createChatCompletion: async () => response,
+    async *streamChatCompletion() {
+      yield {
+        id: response.id,
+        object: 'chat.completion.chunk',
+        created: 1,
+        model: response.model,
+        choices: [
+          {
+            index: 0,
+            delta: { content: response.choices[0]?.message.content },
+            finish_reason: 'stop',
+          },
+        ],
+      };
+    },
+  };
+}
+
+function failingAdapter(id: 'openai' | 'anthropic' | 'google', cause: unknown): ProviderAdapter {
+  return {
+    id,
+    createChatCompletion: async () => {
+      throw cause;
+    },
+    // eslint-disable-next-line require-yield
+    async *streamChatCompletion() {
+      throw cause;
+    },
+  };
+}
+
+async function* emptyStream(): AsyncGenerator<ChatCompletionChunk, void, void> {
+  // no chunks
+}
+
+describe('isRetryableProviderError', () => {
+  it('treats a 5xx ProviderRequestError as retryable', () => {
+    expect(isRetryableProviderError(new ProviderRequestError('openai', 503, 'down'))).toBe(true);
+  });
+
+  it('treats a 4xx ProviderRequestError as not retryable', () => {
+    expect(isRetryableProviderError(new ProviderRequestError('openai', 400, 'bad request'))).toBe(
+      false,
+    );
+  });
+
+  it('treats a timeout DOMException as retryable', () => {
+    expect(isRetryableProviderError(new DOMException('timed out', 'TimeoutError'))).toBe(true);
+  });
+
+  it('treats a network TypeError as retryable', () => {
+    expect(isRetryableProviderError(new TypeError('fetch failed'))).toBe(true);
+  });
+
+  it('treats an unrelated error as not retryable', () => {
+    expect(isRetryableProviderError(new Error('something else'))).toBe(false);
+  });
+});
+
+describe('createChatCompletion', () => {
+  it('throws model_not_found for an unknown model', async () => {
+    const deps: DispatchDeps = {
+      registry: registryWithoutFallback,
+      adapters: {
+        openai: succeedingAdapter('openai', stubResponse('a')),
+        anthropic: succeedingAdapter('anthropic', stubResponse('b')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    await expect(
+      createChatCompletion({ ...baseRequest, model: 'no-such-model' }, deps),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('returns the primary provider response without touching the fallback', async () => {
+    let fallbackCalled = false;
+    const deps: DispatchDeps = {
+      registry: registryWithFallback,
+      adapters: {
+        openai: succeedingAdapter('openai', stubResponse('primary')),
+        anthropic: {
+          ...succeedingAdapter('anthropic', stubResponse('fallback')),
+          createChatCompletion: async () => {
+            fallbackCalled = true;
+            return stubResponse('fallback');
+          },
+        },
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    const result = await createChatCompletion(baseRequest, deps);
+    expect(result.response.id).toBe('primary');
+    expect(result.servedBy.provider).toBe('openai');
+    expect(fallbackCalled).toBe(false);
+  });
+
+  it('fails over to the fallback on a retryable primary failure', async () => {
+    const deps: DispatchDeps = {
+      registry: registryWithFallback,
+      adapters: {
+        openai: failingAdapter('openai', new ProviderRequestError('openai', 503, 'down')),
+        anthropic: succeedingAdapter('anthropic', stubResponse('fallback')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    const result = await createChatCompletion(baseRequest, deps);
+    expect(result.response.id).toBe('fallback');
+    expect(result.servedBy.provider).toBe('anthropic');
+  });
+
+  it('does not fail over on a non-retryable primary failure', async () => {
+    let fallbackCalled = false;
+    const deps: DispatchDeps = {
+      registry: registryWithFallback,
+      adapters: {
+        openai: failingAdapter('openai', new ProviderRequestError('openai', 400, 'bad request')),
+        anthropic: {
+          ...succeedingAdapter('anthropic', stubResponse('fallback')),
+          createChatCompletion: async () => {
+            fallbackCalled = true;
+            return stubResponse('fallback');
+          },
+        },
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    await expect(createChatCompletion(baseRequest, deps)).rejects.toMatchObject({ status: 400 });
+    expect(fallbackCalled).toBe(false);
+  });
+
+  it('maps exhaustion of both attempts to all_providers_failed', async () => {
+    const deps: DispatchDeps = {
+      registry: registryWithFallback,
+      adapters: {
+        openai: failingAdapter('openai', new ProviderRequestError('openai', 503, 'down')),
+        anthropic: failingAdapter('anthropic', new ProviderRequestError('anthropic', 503, 'down')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    await expect(createChatCompletion(baseRequest, deps)).rejects.toMatchObject({
+      status: 502,
+      data: { code: 'all_providers_failed' },
+    });
+  });
+
+  it('maps a single retryable failure with no fallback to provider_error', async () => {
+    const deps: DispatchDeps = {
+      registry: registryWithoutFallback,
+      adapters: {
+        openai: failingAdapter('openai', new ProviderRequestError('openai', 503, 'down')),
+        anthropic: succeedingAdapter('anthropic', stubResponse('c')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    await expect(createChatCompletion(baseRequest, deps)).rejects.toMatchObject({
+      status: 502,
+      data: { code: 'provider_error' },
+    });
+  });
+});
+
+describe('beginChatCompletionStream', () => {
+  it('returns the first chunk and drains the rest from the primary provider', async () => {
+    const deps: DispatchDeps = {
+      registry: registryWithoutFallback,
+      adapters: {
+        openai: succeedingAdapter('openai', stubResponse('primary')),
+        anthropic: succeedingAdapter('anthropic', stubResponse('b')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps);
+    expect(result.firstChunk.choices[0]?.delta.content).toBe('primary');
+    expect(result.servedBy.provider).toBe('openai');
+
+    const rest: ChatCompletionChunk[] = [];
+    for await (const chunk of result.remaining) rest.push(chunk);
+    expect(rest).toHaveLength(0);
+  });
+
+  it('fails over to the fallback before the client sees any bytes', async () => {
+    const deps: DispatchDeps = {
+      registry: registryWithFallback,
+      adapters: {
+        openai: failingAdapter('openai', new ProviderRequestError('openai', 503, 'down')),
+        anthropic: succeedingAdapter('anthropic', stubResponse('fallback')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps);
+    expect(result.firstChunk.choices[0]?.delta.content).toBe('fallback');
+  });
+
+  it('treats an empty stream as a retryable provider failure', async () => {
+    const deps: DispatchDeps = {
+      registry: registryWithFallback,
+      adapters: {
+        openai: {
+          ...succeedingAdapter('openai', stubResponse('a')),
+          streamChatCompletion: emptyStream,
+        },
+        anthropic: succeedingAdapter('anthropic', stubResponse('fallback')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerApiKeys,
+    };
+
+    const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps);
+    expect(result.firstChunk.choices[0]?.delta.content).toBe('fallback');
+  });
+});

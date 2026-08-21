@@ -12,23 +12,42 @@
     "stage": "lint-staged",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:verbose": "vitest run --reporter=verbose"
+    "test:verbose": "vitest run --reporter=verbose",
+    "gateway": "bun --filter gateway",
+    "dev": "bun run gateway dev",
+    "build": "bun run gateway build",
+    "typecheck": "tsc --noEmit -p packages/env/tsconfig.json && tsc --noEmit -p packages/api-contract/tsconfig.json && tsc --noEmit -p apps/gateway/tsconfig.json"
   },
   "workspaces": {
-    "packages": [],
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
     "catalog": {
       "@types/bun": "1.4.0",
-      "typescript": "7.0.2"
+      "consola": "^3.4.2",
+      "typescript": "7.0.2",
+      "valibot": "^1.4.2"
+    },
+    "catalogs": {
+      "server": {
+        "drizzle-kit": "^1.0.0-rc.4",
+        "drizzle-orm": "^1.0.0-rc.4",
+        "nitro": "^3.0.260610-beta"
+      }
     }
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",
     "@types/bun": "catalog:",
+    "drizzle-orm": "catalog:server",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
     "oxfmt": "^0.64.0",
     "oxlint": "^1.79.0",
     "oxlint-tsgolint": "^7.0.2001",
+    "typescript": "catalog:",
+    "valibot": "catalog:",
     "vitest": "^4.1.11"
   },
   "devEngines": {
