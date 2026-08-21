@@ -17,7 +17,7 @@ function baseConfig(): ModelRegistryConfig {
   return {
     version: 1,
     models: [
-      { id: 'gpt-4o', provider: 'openai', providerModel: 'gpt-4o', fallback: 'claude-sonnet' },
+      { id: 'gpt-4o', provider: 'openai', providerModel: 'gpt-4o', fallbacks: ['claude-sonnet'] },
       { id: 'claude-sonnet', provider: 'anthropic', providerModel: 'claude-sonnet-4-5' },
     ],
   };
@@ -40,7 +40,7 @@ describe('loadModelRegistry', () => {
     const config = baseConfig();
     const [first] = config.models;
     if (first === undefined) throw new Error('expected a first model in the base config');
-    first.fallback = 'does-not-exist';
+    first.fallbacks = ['does-not-exist'];
 
     expect(() => loadModelRegistry(config, providerCredentials)).toThrow(ModelRegistryError);
   });
@@ -49,9 +49,35 @@ describe('loadModelRegistry', () => {
     const config = baseConfig();
     const [first] = config.models;
     if (first === undefined) throw new Error('expected a first model in the base config');
-    first.fallback = first.id;
+    first.fallbacks = [first.id];
 
     expect(() => loadModelRegistry(config, providerCredentials)).toThrow(ModelRegistryError);
+  });
+
+  it('rejects a fallback chain listing the same model twice', () => {
+    const config = baseConfig();
+    const [first] = config.models;
+    if (first === undefined) throw new Error('expected a first model in the base config');
+    config.models.push({ id: 'gemini-pro', provider: 'google', providerModel: 'gemini-2.5-pro' });
+    first.fallbacks = ['claude-sonnet', 'claude-sonnet'];
+
+    expect(() =>
+      loadModelRegistry(config, { ...providerCredentials, google: { apiKey: 'sk-test' } }),
+    ).toThrow(ModelRegistryError);
+  });
+
+  it('accepts a multi-hop fallback chain', () => {
+    const config = baseConfig();
+    const [first] = config.models;
+    if (first === undefined) throw new Error('expected a first model in the base config');
+    config.models.push({ id: 'gemini-pro', provider: 'google', providerModel: 'gemini-2.5-pro' });
+    first.fallbacks = ['claude-sonnet', 'gemini-pro'];
+
+    const registry = loadModelRegistry(config, {
+      ...providerCredentials,
+      google: { apiKey: 'sk-test' },
+    });
+    expect(registry.models).toHaveLength(3);
   });
 
   it('rejects a model whose provider is not configured', () => {
@@ -114,7 +140,7 @@ describe('aliases', () => {
     const config = configWithAlias();
     const [, second] = config.models;
     if (second === undefined) throw new Error('expected a second model in the base config');
-    second.fallback = 'company/smart';
+    second.fallbacks = ['company/smart'];
 
     expect(() => loadModelRegistry(config, providerCredentials)).toThrow(ModelRegistryError);
   });
