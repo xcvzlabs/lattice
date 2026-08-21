@@ -47,6 +47,11 @@ function toEnvIssue(issue: v.BaseIssue<unknown>): EnvIssue {
   };
 }
 
+/** Bun.env when running under Bun; falls back to process.env for tools (e.g. drizzle-kit) that load config in a plain Node subprocess. */
+function defaultSource(): EnvSource {
+  return 'Bun' in globalThis ? Bun.env : process.env;
+}
+
 /**
  * Reads and validates environment variables against a Valibot schema.
  *
@@ -58,7 +63,7 @@ function toEnvIssue(issue: v.BaseIssue<unknown>): EnvIssue {
 export function defineEnv<TSchema extends v.GenericSchema>(
   options: DefineEnvOptions<TSchema>,
 ): v.InferOutput<TSchema> {
-  const source = options.source ?? Bun.env;
+  const source = options.source ?? defaultSource();
   const raw = buildRawInput(options.schema, source, []);
   const result = v.safeParse(options.schema, raw);
 
