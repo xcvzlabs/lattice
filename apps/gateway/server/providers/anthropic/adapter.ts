@@ -6,7 +6,7 @@ import type {
 import type { ProviderAdapter, ProviderAdapterDeps, ProviderRequestContext } from '../types.ts';
 import * as v from 'valibot';
 import { parseNamedEventSseStream } from '../sse.ts';
-import { ProviderRequestError } from '../types.ts';
+import { ProviderRequestError, requireApiKey } from '../types.ts';
 import { toAnthropicRequest } from './request.ts';
 import { anthropicResponseSchema, fromAnthropicResponse } from './response.ts';
 import {
@@ -35,7 +35,7 @@ export function createAnthropicAdapter(deps: ProviderAdapterDeps = {}): Provider
   ): Promise<ChatCompletionResponse> {
     const response = await fetchImpl(ANTHROPIC_MESSAGES_URL, {
       method: 'POST',
-      headers: headersFor(context.apiKey),
+      headers: headersFor(requireApiKey(context, 'anthropic')),
       body: JSON.stringify(toAnthropicRequest(request, context.providerModel, false)),
       signal: context.signal,
     });
@@ -58,7 +58,7 @@ export function createAnthropicAdapter(deps: ProviderAdapterDeps = {}): Provider
   ): AsyncGenerator<ChatCompletionChunk, void, void> {
     const response = await fetchImpl(ANTHROPIC_MESSAGES_URL, {
       method: 'POST',
-      headers: headersFor(context.apiKey),
+      headers: headersFor(requireApiKey(context, 'anthropic')),
       body: JSON.stringify(toAnthropicRequest(request, context.providerModel, true)),
       signal: context.signal,
     });

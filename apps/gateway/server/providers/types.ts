@@ -6,7 +6,8 @@ import type {
 import type { ProviderId } from '../registry/models.ts';
 
 export type ProviderRequestContext = {
-  apiKey: string;
+  /** Absent for self-hosted providers that run without authentication. */
+  apiKey?: string;
   providerModel: string;
   signal: AbortSignal;
 };
@@ -41,4 +42,18 @@ export class ProviderRequestError extends Error {
     this.status = status;
     this.provider = provider;
   }
+}
+
+/**
+ * Narrows `ProviderRequestContext.apiKey` to `string` for cloud provider adapters, which
+ * always require one. The registry only lets a cloud-provider model through boot-time
+ * validation when an API key is configured, so a missing key here means dispatch deps
+ * drifted out of sync with the registry, not a real per-request condition.
+ */
+export function requireApiKey(context: ProviderRequestContext, provider: ProviderId): string {
+  if (context.apiKey === undefined) {
+    throw new ProviderRequestError(provider, 500, `Missing API key for provider "${provider}"`);
+  }
+
+  return context.apiKey;
 }

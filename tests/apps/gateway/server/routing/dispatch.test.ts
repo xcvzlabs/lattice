@@ -1,21 +1,24 @@
 import type { ProviderAdapter } from '~/apps/gateway/server/providers/types.ts';
-import type {
-  ModelRegistryConfig,
-  ProviderApiKeys,
-} from '~/apps/gateway/server/registry/models.ts';
+import type { ProviderCredentials } from '~/apps/gateway/server/registry/credentials.ts';
+import type { ModelRegistryConfig } from '~/apps/gateway/server/registry/models.ts';
 import type {
   ChatCompletionChunk,
   ChatCompletionRequest,
   ChatCompletionResponse,
 } from '~/packages/api-contract/src/schemas/chat-completion.ts';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ProviderRequestError } from '~/apps/gateway/server/providers/types.ts';
+import { recordFailure, resetCircuits } from '~/apps/gateway/server/routing/circuit-breaker.ts';
 import {
   beginChatCompletionStream,
   createChatCompletion,
   isRetryableProviderError,
   type DispatchDeps,
 } from '~/apps/gateway/server/routing/dispatch.ts';
+
+beforeEach(() => {
+  resetCircuits();
+});
 
 const baseRequest: ChatCompletionRequest = {
   model: 'primary-model',
@@ -41,7 +44,10 @@ const registryWithoutFallback: ModelRegistryConfig = {
   models: [{ id: 'primary-model', provider: 'openai', providerModel: 'gpt-4o' }],
 };
 
-const providerApiKeys: ProviderApiKeys = { openai: 'sk-test', anthropic: 'sk-test' };
+const providerCredentials: ProviderCredentials = {
+  openai: { apiKey: 'sk-test' },
+  anthropic: { apiKey: 'sk-test' },
+};
 
 function stubResponse(id: string): ChatCompletionResponse {
   return {
@@ -130,7 +136,7 @@ describe('createChatCompletion', () => {
         anthropic: succeedingAdapter('anthropic', stubResponse('b')),
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     await expect(
@@ -153,7 +159,7 @@ describe('createChatCompletion', () => {
         },
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     const result = await createChatCompletion(baseRequest, deps);
@@ -170,7 +176,7 @@ describe('createChatCompletion', () => {
         anthropic: succeedingAdapter('anthropic', stubResponse('fallback')),
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     const result = await createChatCompletion(baseRequest, deps);
@@ -193,7 +199,7 @@ describe('createChatCompletion', () => {
         },
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     await expect(createChatCompletion(baseRequest, deps)).rejects.toMatchObject({ status: 400 });
@@ -208,7 +214,7 @@ describe('createChatCompletion', () => {
         anthropic: failingAdapter('anthropic', new ProviderRequestError('anthropic', 503, 'down')),
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     await expect(createChatCompletion(baseRequest, deps)).rejects.toMatchObject({
@@ -225,7 +231,7 @@ describe('createChatCompletion', () => {
         anthropic: succeedingAdapter('anthropic', stubResponse('c')),
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     await expect(createChatCompletion(baseRequest, deps)).rejects.toMatchObject({
@@ -244,7 +250,7 @@ describe('beginChatCompletionStream', () => {
         anthropic: succeedingAdapter('anthropic', stubResponse('b')),
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps);
@@ -264,7 +270,7 @@ describe('beginChatCompletionStream', () => {
         anthropic: succeedingAdapter('anthropic', stubResponse('fallback')),
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps);
@@ -282,10 +288,54 @@ describe('beginChatCompletionStream', () => {
         anthropic: succeedingAdapter('anthropic', stubResponse('fallback')),
         google: succeedingAdapter('google', stubResponse('c')),
       },
-      providerApiKeys,
+      providerCredentials,
     };
 
     const result = await beginChatCompletionStream({ ...baseRequest, stream: true }, deps);
     expect(result.firstChunk.choices[0]?.delta.content).toBe('fallback');
+  });
+});
+
+describe('circuit breaker interplay', () => {
+  it('skips a primary whose circuit is open and goes straight to the fallback', async () => {
+    for (let count = 0; count < 5; count += 1) recordFailure('openai');
+    let primaryCalled = false;
+
+    const deps: DispatchDeps = {
+      registry: registryWithFallback,
+      adapters: {
+        openai: {
+          ...succeedingAdapter('openai', stubResponse('primary')),
+          createChatCompletion: () => {
+            primaryCalled = true;
+            return Promise.resolve(stubResponse('primary'));
+          },
+        },
+        anthropic: succeedingAdapter('anthropic', stubResponse('fallback')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerCredentials,
+    };
+
+    const result = await createChatCompletion(baseRequest, deps);
+    expect(result.servedBy.provider).toBe('anthropic');
+    expect(primaryCalled).toBe(false);
+  });
+
+  it('still attempts a provider whose circuit is open when it is the only candidate', async () => {
+    for (let count = 0; count < 5; count += 1) recordFailure('openai');
+
+    const deps: DispatchDeps = {
+      registry: registryWithoutFallback,
+      adapters: {
+        openai: succeedingAdapter('openai', stubResponse('primary')),
+        anthropic: succeedingAdapter('anthropic', stubResponse('b')),
+        google: succeedingAdapter('google', stubResponse('c')),
+      },
+      providerCredentials,
+    };
+
+    const result = await createChatCompletion(baseRequest, deps);
+    expect(result.servedBy.provider).toBe('openai');
   });
 });

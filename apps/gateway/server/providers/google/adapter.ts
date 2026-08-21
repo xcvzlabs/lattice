@@ -6,7 +6,7 @@ import type {
 import type { ProviderAdapter, ProviderAdapterDeps, ProviderRequestContext } from '../types.ts';
 import * as v from 'valibot';
 import { parseDataOnlySseStream } from '../sse.ts';
-import { ProviderRequestError } from '../types.ts';
+import { ProviderRequestError, requireApiKey } from '../types.ts';
 import { toGeminiRequest } from './request.ts';
 import { fromGeminiResponse, geminiResponseSchema } from './response.ts';
 import { geminiChunkSchema, parseGeminiChunk } from './stream.ts';
@@ -34,7 +34,12 @@ export function createGoogleAdapter(deps: ProviderAdapterDeps = {}): ProviderAda
     context: ProviderRequestContext,
   ): Promise<ChatCompletionResponse> {
     const response = await fetchImpl(
-      endpointUrl(context.providerModel, 'generateContent', context.apiKey, false),
+      endpointUrl(
+        context.providerModel,
+        'generateContent',
+        requireApiKey(context, 'google'),
+        false,
+      ),
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -60,7 +65,12 @@ export function createGoogleAdapter(deps: ProviderAdapterDeps = {}): ProviderAda
     context: ProviderRequestContext,
   ): AsyncGenerator<ChatCompletionChunk, void, void> {
     const response = await fetchImpl(
-      endpointUrl(context.providerModel, 'streamGenerateContent', context.apiKey, true),
+      endpointUrl(
+        context.providerModel,
+        'streamGenerateContent',
+        requireApiKey(context, 'google'),
+        true,
+      ),
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
