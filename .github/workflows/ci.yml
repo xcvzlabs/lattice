@@ -43,8 +43,8 @@ jobs:
       - name: Check formatting
         run: bun run fmt:check
 
-  test:
-    name: Test
+  typecheck:
+    name: Typecheck
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
@@ -54,13 +54,55 @@ jobs:
       - name: Setup project
         uses: ./.github/actions/setup-project
 
+      - name: Run typecheck
+        run: bun run typecheck
+
+  test:
+    name: Test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: lattice
+          POSTGRES_PASSWORD: lattice
+          POSTGRES_DB: lattice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      API_KEY_PEPPER: ci-only-placeholder-pepper-not-a-real-secret-value
+      OPENAI_API_KEY: ci-placeholder-openai-key
+      ANTHROPIC_API_KEY: ci-placeholder-anthropic-key
+      GOOGLE_API_KEY: ci-placeholder-google-key
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: lattice
+      DB_PASSWORD: lattice
+      DB_SSL: false
+      DB_DATABASE: lattice
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup project
+        uses: ./.github/actions/setup-project
+
+      - name: Run database migrations
+        run: bun run gateway db:migrate
+
       - name: Test
         run: bun run test
 
   ci:
     name: CI
     if: always()
-    needs: [lint, format, test]
+    needs: [lint, format, typecheck, test]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Check job results
