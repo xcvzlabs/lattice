@@ -7,7 +7,7 @@ import type { ProviderId } from '../../registry/models.ts';
 import type { ProviderAdapter, ProviderAdapterDeps, ProviderRequestContext } from '../types.ts';
 import * as v from 'valibot';
 import { parseDataOnlySseStream } from '../sse.ts';
-import { ProviderRequestError } from '../types.ts';
+import { assertProviderOk } from '../types.ts';
 import { toOpenAiRequest } from './request.ts';
 import { fromOpenAiResponse, openAiChatCompletionSchema } from './response.ts';
 import { openAiChunkSchema, parseOpenAiChunk } from './stream.ts';
@@ -57,13 +57,7 @@ export function createOpenAiCompatibleAdapter(
   ): Promise<ChatCompletionResponse> {
     const response = await fetchImpl(options.endpointUrl, requestInit(request, context, false));
 
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        options.id,
-        response.status,
-        `${options.label} request failed (${response.status})`,
-      );
-    }
+    assertProviderOk(response, options.id, options.label);
 
     const body: unknown = await response.json();
     return fromOpenAiResponse(v.parse(openAiChatCompletionSchema, body), request.model);
@@ -75,13 +69,7 @@ export function createOpenAiCompatibleAdapter(
   ): AsyncGenerator<ChatCompletionChunk, void, void> {
     const response = await fetchImpl(options.endpointUrl, requestInit(request, context, true));
 
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        options.id,
-        response.status,
-        `${options.label} request failed (${response.status})`,
-      );
-    }
+    assertProviderOk(response, options.id, options.label);
 
     for await (const event of parseDataOnlySseStream(response)) {
       yield parseOpenAiChunk(v.parse(openAiChunkSchema, event), request.model);

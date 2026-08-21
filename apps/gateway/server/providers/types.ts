@@ -44,6 +44,18 @@ export class ProviderRequestError extends Error {
   }
 }
 
+/** Throws the shared "request failed" `ProviderRequestError` shape for a non-2xx response, so
+ * every adapter reports a failed upstream call the same way. */
+export function assertProviderOk(response: Response, provider: ProviderId, label: string): void {
+  if (response.ok) return;
+
+  throw new ProviderRequestError(
+    provider,
+    response.status,
+    `${label} request failed (${response.status})`,
+  );
+}
+
 /**
  * Narrows `ProviderRequestContext.apiKey` to `string` for cloud provider adapters, which
  * always require one. The registry only lets a cloud-provider model through boot-time
