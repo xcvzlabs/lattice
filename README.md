@@ -425,14 +425,14 @@ The initial focus is a reliable internal AI gateway.
 
 ### Phase 3
 
-- [ ] Cost-aware routing
-- [ ] Latency-aware routing
-- [ ] Advanced provider fallback
-- [ ] Management API
-- [ ] Dashboard
-- [ ] API key management
-- [ ] Advanced observability
-- [ ] Policy management
+- [x] Cost-aware routing
+- [x] Latency-aware routing
+- [x] Advanced provider fallback
+- [x] Management API
+- [x] Dashboard
+- [x] API key management
+- [x] Advanced observability
+- [x] Policy management
 
 ## Status
 
