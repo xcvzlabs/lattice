@@ -2,9 +2,9 @@
   "name": "gateway",
   "type": "module",
   "scripts": {
-    "build": "nitro build",
-    "dev": "nitro dev",
-    "preview": "nitro preview",
+    "build": "bunx --bun nitro build",
+    "dev": "bunx --bun nitro dev",
+    "preview": "bunx --bun nitro preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
