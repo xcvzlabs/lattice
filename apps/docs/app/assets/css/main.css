@@ -1,0 +1,62 @@
+@layer akaza-reset;
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-bg: var(--color-zinc-50);
+  --color-bg-alt: var(--color-zinc-100);
+  --color-ink: var(--color-zinc-900);
+  --color-ink-muted: var(--color-zinc-500);
+  --color-ink-faint: var(--color-zinc-400);
+  --color-border: var(--color-zinc-200);
+  --color-border-strong: var(--color-zinc-300);
+  --color-accent: var(--color-emerald-600);
+  --color-accent-soft: var(--color-emerald-50);
+  --color-code-bg: var(--color-zinc-900);
+  --color-code-ink: var(--color-zinc-200);
+}
+
+.dark {
+  --color-bg: var(--color-zinc-950);
+  --color-bg-alt: var(--color-zinc-900);
+  --color-ink: var(--color-zinc-100);
+  --color-ink-muted: var(--color-zinc-400);
+  --color-ink-faint: var(--color-zinc-500);
+  --color-border: var(--color-zinc-800);
+  --color-border-strong: var(--color-zinc-700);
+  --color-accent: var(--color-emerald-400);
+  --color-accent-soft: color-mix(in oklab, var(--color-emerald-400) 14%, transparent);
+  --color-code-bg: black;
+  --color-code-ink: var(--color-zinc-300);
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-bg-alt: var(--color-bg-alt);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-faint: var(--color-ink-faint);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-accent: var(--color-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-code-bg: var(--color-code-bg);
+  --color-code-ink: var(--color-code-ink);
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  * {
+    @apply rounded-none;
+  }
+
+  body {
+    @apply bg-bg text-ink h-svh font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-accent text-bg;
+  }
+}

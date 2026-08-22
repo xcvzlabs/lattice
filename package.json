@@ -16,8 +16,9 @@
     "test": "bunx --bun vitest run",
     "test:watch": "bunx --bun vitest",
     "test:verbose": "bunx --bun vitest run --reporter=verbose",
-    "gateway": "bun --filter gateway",
-    "dashboard": "bun --filter dashboard"
+    "gateway": "bun --cwd apps/gateway",
+    "dashboard": "bun --cwd apps/dashboard",
+    "docs": "bun --cwd apps/docs"
   },
   "workspaces": {
     "packages": [
