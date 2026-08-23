@@ -1,5 +1,5 @@
-@layer akaza-reset;
 @import 'tailwindcss';
+@import '@nuxt/ui';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
