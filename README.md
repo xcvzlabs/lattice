@@ -259,7 +259,7 @@ lattice/
 
 ## Development
 
-Requires Bun 1.4+ and Node ^26 (`devEngines`/`engines` in `package.json`).
+Requires Bun 1.4+ and Node ^26 (`packageManager`/`engines` in `package.json`).
 
 ```bash
 bun install

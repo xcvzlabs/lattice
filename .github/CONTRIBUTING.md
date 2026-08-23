@@ -13,7 +13,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](./
 
 ## Development Setup
 
-Lattice requires Bun 1.4+ and Node ^26 (see `devEngines`/`engines` in `package.json`).
+Lattice requires Bun 1.4+ and Node ^26 (see `packageManager`/`engines` in `package.json`).
 
 ```bash
 bun install

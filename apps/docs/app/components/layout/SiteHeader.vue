@@ -1,6 +1,4 @@
 <script setup lang="ts">
-  import { Drawer as AkazaDrawer } from 'akaza-ui';
-
   const { show: showSearch } = useCommandPalette();
   const mobileNavOpen = ref(false);
 </script>
@@ -114,39 +112,18 @@
       </div>
     </div>
 
-    <AkazaDrawer
-      v-model="mobileNavOpen"
+    <USlideover
+      v-model:open="mobileNavOpen"
       side="left"
       aria-label="Site navigation"
-      :ui="{
-        overlay: 'fixed inset-0 z-40 bg-ink/40',
-        content:
-          'fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto border-r border-border bg-bg p-5',
-      }"
+      :ui="{ content: 'w-72' }"
     >
-      <template #body="{ close }">
-        <div class="mb-5 flex items-center justify-between">
-          <span class="font-mono text-sm font-bold">[ LATTICE ]</span>
-          <button
-            type="button"
-            class="text-ink-muted hover:text-ink"
-            aria-label="Close navigation"
-            @click="close"
-          >
-            <svg
-              class="size-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <DocsNav @click="close" />
+      <template #header>
+        <span class="font-mono text-sm font-bold">[ LATTICE ]</span>
       </template>
-    </AkazaDrawer>
+      <template #body>
+        <DocsNav @click="mobileNavOpen = false" />
+      </template>
+    </USlideover>
   </header>
 </template>
