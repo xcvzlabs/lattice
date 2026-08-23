@@ -98,7 +98,7 @@ export default defineConfig({
     <p>
       <ProseCode>drizzle.config.ts</ProseCode> in each app reads its own validated
       <ProseCode>env.db</ProseCode> object (from
-      <ProseA href="/development/shared-packages#lattice-env">@lattice/env</ProseA>) rather than
+      <ProseA href="/development/shared-packages#xcvzlabs-env">@xcvzlabs/env</ProseA>) rather than
       duplicating connection-string parsing:
     </p>
     <CodeBlock

@@ -9,7 +9,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
-    "typecheck": "tsc --noEmit -p packages/env/tsconfig.json && tsc --noEmit -p packages/api-contract/tsconfig.json && tsc --noEmit -p apps/gateway/tsconfig.json && bun run dashboard typecheck",
+    "typecheck": "tsc --noEmit -p packages/api-contract/tsconfig.json && tsc --noEmit -p apps/gateway/tsconfig.json && bun run dashboard typecheck",
     "check": "bun run fmt && bun run fmt:check && bun run lint",
     "prepare": "husky",
     "stage": "lint-staged",
@@ -27,6 +27,7 @@
     ],
     "catalog": {
       "@types/bun": "1.4.0",
+      "@xcvzlabs/env": "^0.1.2",
       "consola": "^3.4.2",
       "typescript": "7.0.2",
       "valibot": "^1.4.2"

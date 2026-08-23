@@ -57,15 +57,14 @@ bun install"
     <p>
       <ProseCode>bun install</ProseCode> resolves the whole workspace in one pass:
       <ProseCode>apps/gateway</ProseCode>, <ProseCode>apps/dashboard</ProseCode>,
-      <ProseCode>apps/docs</ProseCode>, <ProseCode>packages/api-contract</ProseCode>, and
-      <ProseCode>packages/env</ProseCode>. Dependency versions for shared libraries (Nuxt, Vue,
-      Drizzle, Nitro, Valibot, <ProseCode>@types/bun</ProseCode>, TypeScript) are pinned once in the
-      root <ProseCode>package.json</ProseCode> under <ProseCode>workspaces.catalog</ProseCode>/
-      <ProseCode>catalogs</ProseCode>, so every workspace package references
-      <ProseCode>catalog:</ProseCode> or <ProseCode>catalog:client</ProseCode>/<ProseCode
-        >catalog:server</ProseCode
-      >
-      instead of a hardcoded version.
+      <ProseCode>apps/docs</ProseCode>, and <ProseCode>packages/api-contract</ProseCode>. Dependency
+      versions for shared libraries (Nuxt, Vue, Drizzle, Nitro, Valibot,
+      <ProseCode>@xcvzlabs/env</ProseCode>, <ProseCode>@types/bun</ProseCode>, TypeScript) are
+      pinned once in the root <ProseCode>package.json</ProseCode> under
+      <ProseCode>workspaces.catalog</ProseCode>/<ProseCode>catalogs</ProseCode>, so every workspace
+      package references <ProseCode>catalog:</ProseCode> or
+      <ProseCode>catalog:client</ProseCode>/<ProseCode>catalog:server</ProseCode> instead of a
+      hardcoded version.
     </p>
     <p>
       <ProseCode>bun install</ProseCode> also runs the repo's <ProseCode>prepare</ProseCode> script
@@ -99,8 +98,7 @@ cp apps/dashboard/.env.example apps/dashboard/.env"
 │   ├── dashboard/   Nuxt 4 + Nuxt UI — admin dashboard
 │   └── docs/         this documentation site
 ├── packages/
-│   ├── api-contract/ shared Valibot schemas + inferred types
-│   └── env/          typed, validated environment parsing
+│   └── api-contract/ shared Valibot schemas + inferred types
 └── tests/            mirrors apps/ and packages/ by path"
     />
     <p>

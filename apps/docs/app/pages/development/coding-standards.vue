@@ -146,10 +146,10 @@
     <ProseH2 id="validation-errors-and-responses">Validation, errors, and responses</ProseH2>
     <ProseUl>
       <ProseLi>
-        <ProseA href="https://valibot.dev">Valibot</ProseA> for environment parsing, form
-        validation, and request validation — see
-        <ProseA href="/development/shared-packages">Shared Packages</ProseA> for
-        <ProseCode>packages/env</ProseCode> and <ProseCode>packages/api-contract</ProseCode>.
+        <ProseA href="https://valibot.dev">Valibot</ProseA> for environment parsing (as leaves
+        passed to <ProseCode>@xcvzlabs/env</ProseCode>), form validation, and request validation —
+        see <ProseA href="/development/shared-packages">Shared Packages</ProseA> for
+        <ProseCode>@xcvzlabs/env</ProseCode> and <ProseCode>packages/api-contract</ProseCode>.
       </ProseLi>
       <ProseLi
         ><ProseCode>camelCaseSchema</ProseCode> naming, not

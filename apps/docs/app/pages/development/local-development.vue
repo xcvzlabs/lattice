@@ -37,9 +37,9 @@
         <ProseTr>
           <ProseTd><ProseCode>bun run typecheck</ProseCode></ProseTd>
           <ProseTd>
-            Typecheck every workspace (<ProseCode>packages/env</ProseCode>,
-            <ProseCode>packages/api-contract</ProseCode>, <ProseCode>apps/gateway</ProseCode>, then
-            <ProseCode>apps/dashboard</ProseCode>'s own <ProseCode>nuxt typecheck</ProseCode>).
+            Typecheck every workspace (<ProseCode>packages/api-contract</ProseCode>,
+            <ProseCode>apps/gateway</ProseCode>, then <ProseCode>apps/dashboard</ProseCode>'s own
+            <ProseCode>nuxt typecheck</ProseCode>).
           </ProseTd>
         </ProseTr>
         <ProseTr>
