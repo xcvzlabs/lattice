@@ -21,8 +21,8 @@
   const mirroredLayout = `apps/gateway/server/routing/dispatch.ts
 tests/apps/gateway/server/routing/dispatch.test.ts
 
-packages/env/define-env.ts
-tests/packages/env/define-env.test.ts`;
+packages/api-contract/src/schemas/chat-completion.ts
+tests/packages/api-contract/schemas/chat-completion.test.ts`;
 
   const runCommands = `bun run test            # vitest run, repo-wide
 bun run test:watch      # watch mode
@@ -152,8 +152,7 @@ bun run test:verbose    # verbose reporter`;
         <ProseTr
           ><ProseTd>Shared packages</ProseTd
           ><ProseTd
-            ><ProseCode>packages/api-contract/schemas/*.test.ts</ProseCode>,
-            <ProseCode>packages/env/*.test.ts</ProseCode></ProseTd
+            ><ProseCode>packages/api-contract/schemas/*.test.ts</ProseCode></ProseTd
           ></ProseTr
         >
       </tbody>

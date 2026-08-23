@@ -14,7 +14,7 @@
     <ProseH1 id="configuration-reference">Configuration Reference</ProseH1>
     <p>
       Both apps validate their environment eagerly at boot via
-      <ProseA href="/development/shared-packages#lattice-env">@lattice/env</ProseA> — a missing or
+      <ProseA href="/development/shared-packages#xcvzlabs-env">@xcvzlabs/env</ProseA> — a missing or
       malformed variable crashes startup with a clear error rather than failing later at request
       time.
     </p>
@@ -27,7 +27,7 @@
         name="PORT"
         type="number, default 3001"
         >Read natively by Nitro's <ProseCode>bun</ProseCode> preset — not part of the
-        <ProseCode>@lattice/env</ProseCode> schema.</Field
+        <ProseCode>@xcvzlabs/env</ProseCode> schema.</Field
       >
       <Field
         name="API_KEY_PEPPER"
@@ -71,7 +71,7 @@
       >
         The gateway's Postgres connection. <ProseCode>DB_SSL</ProseCode> accepts only the literal
         strings <ProseCode>"true"</ProseCode>/<ProseCode>"false"</ProseCode> (see
-        <ProseA href="/development/shared-packages#lattice-env">booleanEnvSchema</ProseA>).
+        <ProseA href="/development/shared-packages#xcvzlabs-env">booleanEnv</ProseA>).
       </Field>
     </FieldGroup>
 

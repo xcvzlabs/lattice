@@ -5,7 +5,8 @@
 
   useSeoMeta({
     title: 'Shared Packages',
-    description: 'The two workspace packages every app builds on — api-contract and env.',
+    description:
+      'The workspace package every app builds on — api-contract — plus @xcvzlabs/env, the external env loader both apps share.',
   });
 
   const schemaTree = `src/schemas/
@@ -26,24 +27,28 @@ import * as v from 'valibot'
 
 const parsed = v.safeParse(chatCompletionRequestSchema, body)`;
 
-  const defineEnvSignature = `export function defineEnv<TSchema extends v.GenericSchema>(options: {
+  const defineEnvSignature = `export function defineEnv<TSchema extends EnvSchemaTree>(options: {
   schema: TSchema
   source?: EnvSource
-}): v.InferOutput<TSchema>`;
+  toEnvVarName?: (path: string[]) => string
+}): InferEnvOutput<TSchema>`;
 
   const envSchemaExample = `// apps/gateway/server/utils/env.ts
+import { booleanEnv, defineEnv } from '@xcvzlabs/env'
+import * as v from 'valibot'
+
 export const env = defineEnv({
-  schema: v.object({
+  schema: {
     apiKeyPepper: v.pipe(v.string(), v.minLength(32)),
     openaiApiKey: v.optional(v.pipe(v.string(), v.minLength(1))),
     // ...
-    db: v.object({
+    db: {
       host: v.string(),
       port: v.pipe(v.string(), v.toNumber()),
-      ssl: booleanEnvSchema,
+      ssl: booleanEnv,
       // ...
-    }),
-  }),
+    },
+  },
 })`;
 </script>
 
@@ -80,9 +85,14 @@ export const env = defineEnv({
       :code="parseExample"
     />
 
-    <ProseH2 id="lattice-env"><ProseCode>@lattice/env</ProseCode></ProseH2>
+    <ProseH2 id="xcvzlabs-env"><ProseCode>@xcvzlabs/env</ProseCode></ProseH2>
     <p>
-      A small, deliberate wrapper around Valibot for environment variable parsing — see
+      A runtime-agnostic, <ProseA href="https://standardschema.dev">Standard Schema</ProseA>-based
+      env var loader — published independently at
+      <ProseA href="https://github.com/xcvzlabs/env">github.com/xcvzlabs/env</ProseA> rather than
+      living in this repo's <ProseCode>packages/</ProseCode> directory, since it's generic enough to
+      use outside Lattice too. Both apps use it with Valibot leaves, but it works with any Standard
+      Schema-compliant validator (Zod, ArkType, or a mix). See
       <ProseA href="/architecture/security">Security</ProseA> and
       <ProseA href="/deployment/configuration-reference">Configuration Reference</ProseA> for what
       it validates in practice.
@@ -93,11 +103,17 @@ export const env = defineEnv({
       :code="defineEnvSignature"
     />
     <p>
-      <strong>Naming convention</strong>: a nested <ProseCode>v.object()</ProseCode> schema's key
-      path maps to a <ProseCode>SCREAMING_SNAKE_CASE</ProseCode> env var name, camelCase segments
-      included — <ProseCode>v.object({ db: v.object({ host: v.string() }) })</ProseCode> reads from
-      <ProseCode>DB_HOST</ProseCode>. This is why
-      <ProseCode>apps/gateway/server/utils/env.ts</ProseCode>'s
+      <strong>The schema is a plain object tree, not a single validator schema</strong>: Standard
+      Schema exposes no portable way to introspect a validator's keys across vendors, so
+      <ProseCode>schema</ProseCode> is a plain nested JS object whose leaves are Standard Schema
+      instances — not a <ProseCode>v.object()</ProseCode>. Grouping is owned by
+      <ProseCode>@xcvzlabs/env</ProseCode> itself, as plain objects.
+    </p>
+    <p>
+      <strong>Naming convention</strong>: a nested group's key path maps to a
+      <ProseCode>SCREAMING_SNAKE_CASE</ProseCode> env var name, camelCase segments included —
+      <ProseCode>{ db: { host: v.string() } }</ProseCode> reads from <ProseCode>DB_HOST</ProseCode>.
+      This is why <ProseCode>apps/gateway/server/utils/env.ts</ProseCode>'s
       <ProseCode>apiKeyPepper</ProseCode> field reads <ProseCode>API_KEY_PEPPER</ProseCode>, and
       <ProseCode>db.host</ProseCode> reads <ProseCode>DB_HOST</ProseCode>.
     </p>
@@ -107,42 +123,47 @@ export const env = defineEnv({
       :code="envSchemaExample"
     />
     <p>
-      <strong>Source</strong>: defaults to <ProseCode>Bun.env</ProseCode> when running under Bun,
-      falling back to <ProseCode>process.env</ProseCode> for tools that load config in a plain Node
-      subprocess (drizzle-kit, notably — see <ProseCode>drizzle.config.ts</ProseCode> importing this
-      same <ProseCode>env</ProseCode> object).
+      <strong>Source</strong>: defaults to <ProseCode>process.env</ProseCode>, with no Bun-, Deno-,
+      or edge-specific APIs involved — Bun populates <ProseCode>process.env</ProseCode> from
+      <ProseCode>.env</ProseCode> files the same way it does <ProseCode>Bun.env</ProseCode>, so this
+      works unchanged for tools that load config in a plain Node subprocess (drizzle-kit, notably —
+      see <ProseCode>drizzle.config.ts</ProseCode> importing this same <ProseCode>env</ProseCode>
+      object).
     </p>
     <p>
-      <strong>Failure mode</strong>: <ProseCode>v.safeParse</ProseCode> runs once, eagerly, at
-      import time. Any invalid or missing variable throws
-      <ProseCode>EnvValidationError</ProseCode> — a typed error carrying
+      <strong>Failure mode</strong>: validation runs once, eagerly, at import time. Any invalid or
+      missing variable throws <ProseCode>EnvValidationError</ProseCode> — a typed error carrying
       <ProseCode>issues: EnvIssue[]</ProseCode> (each with <ProseCode>envVar</ProseCode>,
       <ProseCode>path</ProseCode>, and <ProseCode>message</ProseCode>) — which crashes the process
       at boot rather than surfacing as a runtime <ProseCode>undefined</ProseCode> deep in request
       handling.
     </p>
     <p>
-      <strong><ProseCode>booleanEnvSchema</ProseCode></strong
-      >: exported from <ProseCode>packages/env/schemas.ts</ProseCode> specifically because Valibot's
-      own <ProseCode>v.toBoolean()</ProseCode> does a plain
-      <ProseCode>Boolean(value)</ProseCode> coercion, and <em>any</em> non-empty string — including
-      the literal text <ProseCode>"false"</ProseCode> — is truthy in JavaScript.
-      <ProseCode>booleanEnvSchema</ProseCode> only accepts the literal strings
+      <strong><ProseCode>booleanEnv</ProseCode></strong
+      >: one of a handful of zero-dependency leaf schemas <ProseCode>@xcvzlabs/env</ProseCode>
+      ships for coercions most validators either lack or get subtly wrong. A naive
+      <ProseCode>Boolean(value)</ProseCode> coercion is a JS truthiness check, so it can never
+      actually produce <ProseCode>false</ProseCode> for a set env var — <em>any</em> non-empty
+      string, including the literal text <ProseCode>"false"</ProseCode>, is truthy in JavaScript.
+      <ProseCode>booleanEnv</ProseCode> only accepts the literal strings
       <ProseCode>"true"</ProseCode>/<ProseCode>"false"</ProseCode> and transforms them to the real
       boolean, which is what makes <ProseCode>DB_SSL=false</ProseCode> actually mean
       <ProseCode>false</ProseCode>.
     </p>
 
-    <ProseH2 id="why-these-are-separate-packages-not-gateway-local-utilities"
-      >Why these are separate packages, not gateway-local utilities</ProseH2
+    <ProseH2 id="why-api-contract-is-a-separate-package-not-a-gateway-local-utility"
+      >Why <ProseCode>api-contract</ProseCode> is a separate package, not a gateway-local
+      utility</ProseH2
     >
     <p>
-      Both the gateway and the dashboard need typed environment parsing, and the dashboard's
-      <ProseCode>server/api/*</ProseCode> routes need the exact same request/response types the
-      gateway's route handlers validate against. Duplicating either would mean the two apps could
-      drift — a field renamed on one side without the other noticing until a request fails at
-      runtime. Centralizing both in <ProseCode>packages/</ProseCode> makes that drift a compile-time
-      TypeScript error instead.
+      Both the gateway and the dashboard need typed environment parsing — that's
+      <ProseCode>@xcvzlabs/env</ProseCode>, an external dependency, not something to centralize
+      locally. But the dashboard's <ProseCode>server/api/*</ProseCode> routes also need the exact
+      same request/response types the gateway's route handlers validate against. Duplicating those
+      schemas would mean the two apps could drift — a field renamed on one side without the other
+      noticing until a request fails at runtime. Centralizing them in
+      <ProseCode>packages/api-contract</ProseCode> makes that drift a compile-time TypeScript error
+      instead.
     </p>
   </DocPage>
 </template>

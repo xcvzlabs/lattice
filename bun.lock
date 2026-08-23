@@ -22,13 +22,13 @@
       "name": "dashboard",
       "dependencies": {
         "@lattice/api-contract": "workspace:*",
-        "@lattice/env": "workspace:*",
         "@nuxt/ui": "catalog:client",
         "@nuxtjs/better-auth": "catalog:client",
         "@pinia/colada": "catalog:client",
         "@pinia/colada-nuxt": "catalog:client",
         "@pinia/nuxt": "catalog:client",
         "@vueuse/nuxt": "catalog:client",
+        "@xcvzlabs/env": "catalog:",
         "better-auth": "catalog:client",
         "drizzle-orm": "catalog:server",
         "nuxt": "catalog:client",
@@ -65,7 +65,7 @@
       "name": "gateway",
       "dependencies": {
         "@lattice/api-contract": "workspace:*",
-        "@lattice/env": "workspace:*",
+        "@xcvzlabs/env": "catalog:",
         "drizzle-orm": "catalog:server",
         "evlog": "^2.26.0",
         "valibot": "catalog:",
@@ -90,21 +90,10 @@
         "typescript": "catalog:",
       },
     },
-    "packages/env": {
-      "name": "@lattice/env",
-      "dependencies": {
-        "valibot": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-      "peerDependencies": {
-        "typescript": "catalog:",
-      },
-    },
   },
   "catalog": {
     "@types/bun": "1.4.0",
+    "@xcvzlabs/env": "^0.1.2",
     "consola": "^3.4.2",
     "typescript": "7.0.2",
     "valibot": "^1.4.2",
@@ -367,8 +356,6 @@
     "@kwsites/promise-deferred": ["@kwsites/promise-deferred@1.1.1", "", {}, "sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw=="],
 
     "@lattice/api-contract": ["@lattice/api-contract@workspace:packages/api-contract"],
-
-    "@lattice/env": ["@lattice/env@workspace:packages/env"],
 
     "@mapbox/node-pre-gyp": ["@mapbox/node-pre-gyp@2.0.3", "", { "dependencies": { "consola": "^3.2.3", "detect-libc": "^2.0.0", "https-proxy-agent": "^7.0.5", "node-fetch": "^2.6.7", "nopt": "^8.0.0", "semver": "^7.5.3", "tar": "^7.4.0" }, "bin": { "node-pre-gyp": "bin/node-pre-gyp" } }, "sha512-uwPAhccfFJlsfCxMYTwOdVfOz3xqyj8xYL3zJj8f0pb30tLohnnFPhLuqp4/qoEz8sNxe4SESZedcBojRefIzg=="],
 
@@ -907,6 +894,8 @@
     "@vueuse/nuxt": ["@vueuse/nuxt@14.4.0", "", { "dependencies": { "@nuxt/kit": "^4.5.1", "@vueuse/core": "14.4.0", "@vueuse/metadata": "14.4.0", "local-pkg": "^1.2.1" }, "peerDependencies": { "nuxt": "^3.0.0 || ^4.0.0-0 || ^5.0.0-0", "vue": "^3.5.0" } }, "sha512-97At9ad6UvEB73vH1/h2yYTRZM7uPchzo7s2jRLwKWWHRZXGdzTn8AtpSwZVIAaXJTDcpiqzo9Inhd8v50mkMg=="],
 
     "@vueuse/shared": ["@vueuse/shared@14.4.0", "", { "peerDependencies": { "vue": "^3.5.0" } }, "sha512-JRgY90Sz8DDtPMsaDflvPMp9xYk69JZAmbuDvAquUVXKr2gEjqtzGNTTthLfckH0BzBqvnu31gb4a8TGLRe79g=="],
+
+    "@xcvzlabs/env": ["@xcvzlabs/env@0.1.2", "", { "peerDependencies": { "typescript": "^7" } }, "sha512-QLp9VtyfDoz2wUgvo0vMn3GWVC5ogPkN5WWfH7Qi7u0SkZgiyOou2gLQY3iQPi5jjHK085KhDaScf/Lqf1vifg=="],
 
     "abbrev": ["abbrev@3.0.1", "", {}, "sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg=="],
 

@@ -39,8 +39,7 @@
 │   └── docs/                       this documentation site
 │
 ├── packages/
-│   ├── api-contract/               shared Valibot schemas + inferred types
-│   └── env/                        typed, validated environment parsing (\`defineEnv\`)
+│   └── api-contract/               shared Valibot schemas + inferred types
 │
 ├── tests/                          mirrors apps/ and packages/ by path
 │   ├── apps/gateway/server/...
@@ -88,12 +87,13 @@
       Design principle: shared packages, not duplicated types
     </ProseH2>
     <p>
-      <ProseCode>packages/api-contract</ProseCode> and <ProseCode>packages/env</ProseCode> exist
-      because the gateway, the dashboard, and (indirectly) any future client all need the same
-      request/response shapes and the same environment-parsing discipline. Rather than each app
-      declaring its own <ProseCode>ChatCompletionRequest</ProseCode> type or its own ad-hoc
-      <ProseCode>process.env.FOO</ProseCode> reads, both import from these two workspace packages —
-      see <ProseA href="/development/shared-packages">Shared Packages</ProseA>.
+      <ProseCode>packages/api-contract</ProseCode> exists because the gateway, the dashboard, and
+      (indirectly) any future client all need the same request/response shapes. Rather than each app
+      declaring its own <ProseCode>ChatCompletionRequest</ProseCode> type, both import from this
+      workspace package. The same discipline applies to environment parsing, via the external
+      <ProseCode>@xcvzlabs/env</ProseCode> package rather than ad-hoc
+      <ProseCode>process.env.FOO</ProseCode> reads — see
+      <ProseA href="/development/shared-packages">Shared Packages</ProseA>.
     </p>
 
     <ProseH2 id="where-things-are-configured">Where things are configured</ProseH2>
