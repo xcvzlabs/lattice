@@ -26,7 +26,7 @@
     "@lattice/api-contract": "workspace:*",
     "@xcvzlabs/env": "catalog:",
     "drizzle-orm": "catalog:server",
-    "evlog": "^2.26.0",
+    "evlog": "^2.30.0",
     "valibot": "catalog:"
   }
 }
